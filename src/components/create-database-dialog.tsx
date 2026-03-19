@@ -87,6 +87,8 @@ type CreateDatabaseDialogProps = {
   categories: Category[];
   existingDatabases: Array<Pick<Database, "service" | "port">>;
   onSave: (db: Omit<Database, "id" | "containerId">) => Promise<void>;
+  mode?: "create" | "edit";
+  initialDatabase?: Omit<Database, "id" | "containerId"> | null;
   isCreating?: boolean;
   createError?: string | null;
   dockerRunning?: boolean;
@@ -100,6 +102,8 @@ export function CreateDatabaseDialog({
   categories,
   existingDatabases,
   onSave,
+  mode = "create",
+  initialDatabase = null,
   isCreating = false,
   createError = null,
   dockerRunning = true,
@@ -118,6 +122,7 @@ export function CreateDatabaseDialog({
   >({});
 
   const versionRequestId = React.useRef(0);
+  const wasOpen = React.useRef(false);
 
   const activeVersionState = service
     ? (versionStateByService[service] ?? DEFAULT_VERSION_STATE)
@@ -230,6 +235,24 @@ export function CreateDatabaseDialog({
     setSelectedCategories([]);
   }
 
+  React.useEffect(() => {
+    if (open && !wasOpen.current) {
+      if (mode === "edit" && initialDatabase) {
+        setName(initialDatabase.name);
+        setService(initialDatabase.service);
+        setVersion(initialDatabase.version);
+        setPort(initialDatabase.port);
+        setPassword(initialDatabase.password);
+        setShowPassword(false);
+        setSelectedCategories(initialDatabase.categoryIds);
+        void loadVersionsForService(initialDatabase.service);
+      } else {
+        resetForm();
+      }
+    }
+    wasOpen.current = open;
+  }, [initialDatabase, mode, open]);
+
   const canSave =
     !isCreating && name.trim() && service && version && dockerRunning;
 
@@ -245,7 +268,9 @@ export function CreateDatabaseDialog({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <DatabaseIcon className="size-4 text-muted-foreground" />
-            <DialogTitle>Create Database</DialogTitle>
+            <DialogTitle>
+              {mode === "edit" ? "Edit Database" : "Create Database"}
+            </DialogTitle>
           </div>
         </DialogHeader>
 
@@ -259,10 +284,14 @@ export function CreateDatabaseDialog({
           </div>
         )}
 
-        {/* Error from the last create attempt */}
+        {/* Error from the last save attempt */}
         {createError && (
           <div className="flex flex-col gap-0.5 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
-            <span className="font-medium">Failed to create container</span>
+            <span className="font-medium">
+              {mode === "edit"
+                ? "Failed to save database"
+                : "Failed to create container"}
+            </span>
             <span className="text-destructive/70 break-all">{createError}</span>
           </div>
         )}
@@ -454,10 +483,10 @@ export function CreateDatabaseDialog({
             {isCreating ? (
               <>
                 <Loader2Icon className="size-4 animate-spin" />
-                Creating…
+                {mode === "edit" ? "Saving…" : "Creating…"}
               </>
             ) : (
-              "Save"
+              mode === "edit" ? "Save Changes" : "Save"
             )}
           </Button>
         </DialogFooter>

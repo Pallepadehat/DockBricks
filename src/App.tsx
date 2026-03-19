@@ -4,7 +4,9 @@ import {
   DatabaseIcon,
   AlertTriangleIcon,
   RefreshCwIcon,
-  CheckCircle2Icon,
+  CopyIcon,
+  PencilIcon,
+  Trash2Icon,
 } from "lucide-react";
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
@@ -19,6 +21,13 @@ import {
   createDatabase,
   type DockerStatus,
 } from "@/lib/tauri-commands";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 function loadFromStorage<T>(key: string, fallback: T): T {
@@ -48,6 +57,10 @@ export default function App() {
 
   const [showCreateCategory, setShowCreateCategory] = React.useState(false);
   const [showCreateDatabase, setShowCreateDatabase] = React.useState(false);
+  const [showEditDatabase, setShowEditDatabase] = React.useState(false);
+  const [editingDatabaseId, setEditingDatabaseId] = React.useState<
+    string | null
+  >(null);
 
   // Docker status
   const [dockerStatus, setDockerStatus] = React.useState<DockerStatus | null>(
@@ -130,6 +143,47 @@ export default function App() {
     }
   }
 
+  async function handleEditDatabase(
+    data: Omit<Database, "id" | "containerId">,
+  ) {
+    if (!editingDatabaseId) return;
+    setDatabases((prev) =>
+      prev.map((db) =>
+        db.id === editingDatabaseId
+          ? {
+              ...db,
+              ...data,
+            }
+          : db,
+      ),
+    );
+    setShowEditDatabase(false);
+    setEditingDatabaseId(null);
+  }
+
+  function handleDeleteDatabase(databaseId: string) {
+    setDatabases((prev) => prev.filter((db) => db.id !== databaseId));
+    if (editingDatabaseId === databaseId) {
+      setShowEditDatabase(false);
+      setEditingDatabaseId(null);
+    }
+  }
+
+  async function handleCopyConnectionString(db: Database) {
+    const connectionString = buildConnectionString(db);
+    try {
+      await navigator.clipboard.writeText(connectionString);
+    } catch {
+      // Clipboard can fail in restricted environments, so we still expose the value.
+      window.prompt("Copy connection string:", connectionString);
+    }
+  }
+
+  const editingDatabase =
+    editingDatabaseId === null
+      ? null
+      : (databases.find((db) => db.id === editingDatabaseId) ?? null);
+
   // Filter databases by selected category
   const visibleDatabases =
     selectedCategory === null
@@ -174,9 +228,9 @@ export default function App() {
         {!dockerChecking && dockerStatus?.running && <div className="hidden" />}
 
         {/* ── Main content ── */}
-        <main className="flex flex-1 flex-col items-center justify-center gap-3 text-center p-6 overflow-auto">
+        <main className="flex flex-1 flex-col items-center gap-3 text-center px-2 overflow-auto">
           {visibleDatabases.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
               <DatabaseIcon className="size-10 stroke-[1.25]" />
               <p className="text-sm font-medium text-foreground/80">
                 No Databases
@@ -190,7 +244,26 @@ export default function App() {
           ) : (
             <div className="w-full grid grid-cols-1 gap-3">
               {visibleDatabases.map((db) => (
-                <DatabaseCard key={db.id} db={db} categories={categories} />
+                <DatabaseCard
+                  key={db.id}
+                  db={db}
+                  categories={categories}
+                  onEdit={() => {
+                    setCreateError(null);
+                    setEditingDatabaseId(db.id);
+                    setShowEditDatabase(true);
+                  }}
+                  onDelete={() => {
+                    const confirmed = window.confirm(
+                      `Delete "${db.name}" from DockBricks?`,
+                    );
+                    if (!confirmed) return;
+                    handleDeleteDatabase(db.id);
+                  }}
+                  onCopyConnectionString={() =>
+                    void handleCopyConnectionString(db)
+                  }
+                />
               ))}
             </div>
           )}
@@ -216,12 +289,42 @@ export default function App() {
         createError={createError}
         dockerRunning={dockerStatus?.running ?? false}
       />
+      <CreateDatabaseDialog
+        open={showEditDatabase}
+        onOpenChange={(open) => {
+          setShowEditDatabase(open);
+          if (!open) setEditingDatabaseId(null);
+        }}
+        categories={categories}
+        existingDatabases={databases}
+        onSave={handleEditDatabase}
+        mode="edit"
+        initialDatabase={
+          editingDatabase
+            ? {
+                name: editingDatabase.name,
+                service: editingDatabase.service,
+                version: editingDatabase.version,
+                port: editingDatabase.port,
+                password: editingDatabase.password,
+                categoryIds: editingDatabase.categoryIds,
+              }
+            : null
+        }
+        dockerRunning={dockerStatus?.running ?? false}
+      />
     </SidebarProvider>
   );
 }
 
 // ── Docker warning banner ─────────────────────────────────────────────────────
-function DockerWarningBanner({ onRetry }: { onRetry: () => void }) {
+function DockerWarningBanner({
+  onRetry,
+}: {
+  onRetry: () => void;
+  error?: string | null;
+  onDismiss?: () => void;
+}) {
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 bg-destructive/10 border-b border-destructive/20 text-sm">
       <AlertTriangleIcon className="size-4 mt-0.5 shrink-0 text-destructive" />
@@ -245,9 +348,15 @@ function DockerWarningBanner({ onRetry }: { onRetry: () => void }) {
 function DatabaseCard({
   db,
   categories,
+  onEdit,
+  onDelete,
+  onCopyConnectionString,
 }: {
   db: Database;
   categories: Category[];
+  onEdit: () => void;
+  onDelete: () => void;
+  onCopyConnectionString: () => void;
 }) {
   const dbCategories = categories.filter((c) => db.categoryIds.includes(c.id));
 
@@ -260,41 +369,83 @@ function DatabaseCard({
   };
 
   return (
-    <div className="rounded-lg border bg-card p-4 text-left shadow-xs flex flex-col gap-2 hover:shadow-sm transition-shadow">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium leading-none">{db.name}</p>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div className="rounded-lg border bg-card p-4 text-left shadow-xs flex flex-col gap-2 hover:shadow-sm transition-shadow">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium leading-none">{db.name}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span
+                className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                  serviceColor[db.service] ?? "bg-muted text-muted-foreground"
+                }`}
+              >
+                {db.service} {db.version}
+              </span>
+              <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                :{db.port}
+              </span>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span
-            className={`rounded-md px-2 py-0.5 text-xs font-medium ${
-              serviceColor[db.service] ?? "bg-muted text-muted-foreground"
-            }`}
-          >
-            {db.service} {db.version}
-          </span>
-          <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-            :{db.port}
-          </span>
-        </div>
-      </div>
 
-      {dbCategories.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-1">
-          {dbCategories.map((cat) => (
-            <span
-              key={cat.id}
-              className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground"
-            >
-              {cat.name}
-            </span>
-          ))}
+          {dbCategories.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {dbCategories.map((cat) => (
+                <span
+                  key={cat.id}
+                  className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground"
+                >
+                  {cat.name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onSelect={onCopyConnectionString} className="text-xs">
+          <CopyIcon className="size-4" />
+          Copy Connection String
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={onEdit} className="text-xs">
+          <PencilIcon className="size-4" />
+          Edit Database
+        </ContextMenuItem>
+        <ContextMenuItem
+          variant="destructive"
+          onSelect={onDelete}
+          className="text-xs "
+        >
+          <Trash2Icon className="size-4" />
+          Delete Database
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
+}
+
+function buildConnectionString(db: Database): string {
+  const host = "localhost";
+  const port = db.port;
+  const database = encodeURIComponent(db.name);
+  const password = encodeURIComponent(db.password);
+
+  switch (db.service) {
+    case "MariaDB":
+    case "MySQL":
+      return `mysql://root:${password}@${host}:${port}/${database}`;
+    case "PostgreSQL":
+      return `postgresql://postgres:${password}@${host}:${port}/${database}`;
+    case "Redis":
+      return password
+        ? `redis://:${password}@${host}:${port}`
+        : `redis://${host}:${port}`;
+  }
 }
 
 function humanizeCreateError(
