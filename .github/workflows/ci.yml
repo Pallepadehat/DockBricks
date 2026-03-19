@@ -6,9 +6,16 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
@@ -22,6 +29,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
       - name: Install Linux dependencies for Tauri
         run: |
@@ -39,6 +48,14 @@ jobs:
       - name: Frontend build
         run: npm run build
 
-      - name: Rust check
+      - name: Rust format check
+        working-directory: src-tauri
+        run: cargo fmt --all --check
+
+      - name: Rust lint check
+        working-directory: src-tauri
+        run: cargo clippy --all-targets
+
+      - name: Rust type check
         working-directory: src-tauri
         run: cargo check

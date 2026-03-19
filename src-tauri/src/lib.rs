@@ -462,7 +462,9 @@ fn stop_container(engine: String, target: String) -> ContainerActionResult {
 #[tauri::command]
 fn delete_container(engine: String, target: String) -> ContainerActionResult {
     let engine_bin = normalize_engine(&engine);
-    let output = Command::new(engine_bin).args(["rm", "-f", &target]).output();
+    let output = Command::new(engine_bin)
+        .args(["rm", "-f", &target])
+        .output();
 
     match output {
         Ok(out) if out.status.success() => ContainerActionResult {

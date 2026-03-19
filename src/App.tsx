@@ -9,7 +9,7 @@ import { CreateDatabaseDialog } from "@/components/create-database-dialog";
 import { DatabaseCard } from "@/components/databases/database-card";
 import { DeleteDatabaseDialog } from "@/components/dialogs/delete-database-dialog";
 import { SettingsDialog } from "@/components/dialogs/settings-dialog";
-import { DockerWarningBanner } from "@/components/docker-warning-banner";
+import { EngineWarningBanner } from "@/components/engine-warning-banner";
 import { EngineOnboarding } from "@/components/onboarding/engine-onboarding";
 import {
   buildConnectionString,
@@ -17,7 +17,7 @@ import {
 } from "@/lib/database-utils";
 import { createDatabase } from "@/lib/tauri-commands";
 import { useDatabaseRuntime } from "@/hooks/use-database-runtime";
-import { useContainerEngineHealth } from "@/hooks/use-docker-health";
+import { useContainerEngineHealth } from "@/hooks/use-container-engine-health";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { Category, ContainerEngine, Database } from "@/types/models";
 
@@ -57,7 +57,7 @@ export default function App() {
   const selectedEngine: ContainerEngine = containerEngine ?? "docker";
   const engineLabel = selectedEngine === "docker" ? "Docker" : "Podman";
 
-  const { dockerStatus, dockerChecking, showDockerWarning, pollDocker } =
+  const { engineStatus, engineChecking, showEngineWarning, retryEngineCheck } =
     useContainerEngineHealth(selectedEngine);
 
   const {
@@ -67,7 +67,7 @@ export default function App() {
     toggleContainerState,
     deleteContainerForDatabase,
     clearRuntimeForDatabase,
-  } = useDatabaseRuntime(databases, selectedEngine, dockerStatus?.running ?? false);
+  } = useDatabaseRuntime(databases, selectedEngine, engineStatus?.running ?? false);
 
   if (!containerEngine) {
     return <EngineOnboarding onSelectEngine={setContainerEngine} />;
@@ -215,10 +215,10 @@ export default function App() {
       />
 
       <SidebarInset className="flex flex-col overflow-hidden">
-        {showDockerWarning && (
-          <DockerWarningBanner engineLabel={engineLabel} onRetry={pollDocker} />
+        {showEngineWarning && (
+          <EngineWarningBanner engineLabel={engineLabel} onRetry={retryEngineCheck} />
         )}
-        {!dockerChecking && dockerStatus?.running && <div className="hidden" />}
+        {!engineChecking && engineStatus?.running && <div className="hidden" />}
 
         <main className="flex flex-1 flex-col items-center gap-3 text-center overflow-auto">
           {visibleDatabases.length === 0 ? (
@@ -242,7 +242,7 @@ export default function App() {
                   categories={categories}
                   runtime={runtimeByDbId[db.id]}
                   actionBusy={actionBusyByDbId[db.id] ?? false}
-                  dockerRunning={dockerStatus?.running ?? false}
+                  engineRunning={engineStatus?.running ?? false}
                   onToggleRunning={() => void handleToggleContainer(db)}
                   onEdit={() => {
                     setCreateError(null);
@@ -280,7 +280,7 @@ export default function App() {
         onSave={handleCreateDatabase}
         isCreating={isCreating}
         createError={createError}
-        dockerRunning={dockerStatus?.running ?? false}
+        engineRunning={engineStatus?.running ?? false}
         engineLabel={engineLabel}
       />
 
@@ -306,7 +306,7 @@ export default function App() {
               }
             : null
         }
-        dockerRunning={dockerStatus?.running ?? false}
+        engineRunning={engineStatus?.running ?? false}
         engineLabel={engineLabel}
       />
 

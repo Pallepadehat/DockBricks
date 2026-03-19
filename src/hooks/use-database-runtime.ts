@@ -22,7 +22,7 @@ type RuntimeActionResult =
 export function useDatabaseRuntime(
   databases: Database[],
   engine: ContainerEngine,
-  dockerRunning: boolean,
+  engineRunning: boolean,
 ) {
   const engineLabel = engine === "docker" ? "Docker" : "Podman";
   const [runtimeByDbId, setRuntimeByDbId] = React.useState<Record<string, RuntimeState>>({});
@@ -30,7 +30,7 @@ export function useDatabaseRuntime(
 
   const refreshContainerState = React.useCallback(
     async (db: Database) => {
-      if (!dockerRunning) {
+      if (!engineRunning) {
         setRuntimeByDbId((prev) => {
           const next = { ...prev };
           delete next[db.id];
@@ -72,22 +72,22 @@ export function useDatabaseRuntime(
         }));
       }
     },
-    [dockerRunning, engine],
+    [engineRunning, engine],
   );
 
   React.useEffect(() => {
-    if (!dockerRunning || databases.length === 0) {
+    if (!engineRunning || databases.length === 0) {
       setRuntimeByDbId({});
       return;
     }
 
     void Promise.all(databases.map((db) => refreshContainerState(db)));
     return undefined;
-  }, [databases, dockerRunning, refreshContainerState]);
+  }, [databases, engineRunning, refreshContainerState]);
 
   const toggleContainerState = React.useCallback(
     async (db: Database): Promise<RuntimeActionResult> => {
-      if (!dockerRunning) {
+      if (!engineRunning) {
         return { ok: false, error: `${engineLabel} is not running.` };
       }
 
@@ -116,12 +116,12 @@ export function useDatabaseRuntime(
         void refreshContainerState(db);
       }
     },
-    [dockerRunning, engine, engineLabel, refreshContainerState, runtimeByDbId],
+    [engineRunning, engine, engineLabel, refreshContainerState, runtimeByDbId],
   );
 
   const deleteContainerForDatabase = React.useCallback(
     async (db: Database): Promise<RuntimeActionResult> => {
-      if (!dockerRunning) {
+      if (!engineRunning) {
         return { ok: false, error: `${engineLabel} is not running.` };
       }
 
@@ -136,7 +136,7 @@ export function useDatabaseRuntime(
         return { ok: false, error: String(error) };
       }
     },
-    [dockerRunning, engine, engineLabel],
+    [engineRunning, engine, engineLabel],
   );
 
   const clearRuntimeForDatabase = React.useCallback((databaseId: string) => {

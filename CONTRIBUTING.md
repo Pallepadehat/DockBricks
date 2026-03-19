@@ -2,7 +2,7 @@
 
 Thanks for contributing to DockBricks.
 
-## Development Setup
+## Local Setup
 
 1. Install dependencies:
 
@@ -10,16 +10,10 @@ Thanks for contributing to DockBricks.
 npm install
 ```
 
-2. Run the frontend:
+2. Run the app:
 
 ```bash
-npm run dev
-```
-
-3. Run Tauri app:
-
-```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 ## Project Conventions
@@ -29,12 +23,13 @@ npm run tauri dev
 - Keep side effects and polling logic in `src/hooks`.
 - Keep presentational UI in `src/components`.
 - Prefer small, composable components over monolith files.
+- Prefer shadcn/ui primitives instead of ad-hoc custom widgets.
 
 ## Validation Before PR
 
 ```bash
 npm run build
-cd src-tauri && cargo check
+cd src-tauri && cargo fmt --all --check && cargo clippy --all-targets && cargo check
 ```
 
 ## PR Expectations
@@ -42,3 +37,4 @@ cd src-tauri && cargo check
 - Explain what changed and why.
 - Include screenshots or short recordings for UI changes.
 - Keep refactors behavior-safe and incremental.
+- Mention manual test notes (engine used, create/start/stop/delete verified).

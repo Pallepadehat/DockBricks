@@ -77,7 +77,7 @@ type CreateDatabaseDialogProps = {
   initialDatabase?: Omit<Database, "id" | "containerId"> | null;
   isCreating?: boolean;
   createError?: string | null;
-  dockerRunning?: boolean;
+  engineRunning?: boolean;
   engineLabel?: string;
 };
 
@@ -93,7 +93,7 @@ export function CreateDatabaseDialog({
   initialDatabase = null,
   isCreating = false,
   createError = null,
-  dockerRunning = true,
+  engineRunning = true,
   engineLabel = "Docker",
 }: CreateDatabaseDialogProps) {
   const [name, setName] = React.useState("");
@@ -242,7 +242,7 @@ export function CreateDatabaseDialog({
   }, [initialDatabase, mode, open]);
 
   const canSave =
-    !isCreating && name.trim() && service && version && dockerRunning;
+    !isCreating && name.trim() && service && version && engineRunning;
 
   return (
     <Dialog
@@ -263,7 +263,7 @@ export function CreateDatabaseDialog({
         </DialogHeader>
 
         {/* Docker not running warning */}
-        {!dockerRunning && (
+        {!engineRunning && (
           <div className="flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
             <AlertTriangleIcon className="size-3.5 shrink-0" />
             <span>

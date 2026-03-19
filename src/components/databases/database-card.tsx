@@ -23,7 +23,7 @@ type DatabaseCardProps = {
   categories: Category[];
   runtime?: RuntimeState;
   actionBusy: boolean;
-  dockerRunning: boolean;
+  engineRunning: boolean;
   onToggleRunning: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -35,7 +35,7 @@ export function DatabaseCard({
   categories,
   runtime,
   actionBusy,
-  dockerRunning,
+  engineRunning,
   onToggleRunning,
   onEdit,
   onDelete,
@@ -51,8 +51,8 @@ export function DatabaseCard({
     Redis: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
   };
 
-  const status = !dockerRunning
-    ? { label: "Docker Offline", className: "text-muted-foreground" }
+  const status = !engineRunning
+    ? { label: "Engine Offline", className: "text-muted-foreground" }
     : runtime?.loading
       ? { label: "Checking", className: "text-muted-foreground" }
       : runtime?.exists === false
@@ -62,7 +62,7 @@ export function DatabaseCard({
           : { label: "Stopped", className: "text-red-500" };
 
   const disableToggle =
-    !dockerRunning ||
+    !engineRunning ||
     actionBusy ||
     runtime?.loading ||
     runtime?.exists === false ||
@@ -80,7 +80,7 @@ export function DatabaseCard({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <span className={`text-sm font-semibold ${status.className}`}>
+              <span className={`text-sm ${status.className}`}>
                 {status.label}
               </span>
               <Button

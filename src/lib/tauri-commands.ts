@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core"
 import type { ContainerEngine } from "@/types/models"
 
-export interface DockerStatus {
+export interface ContainerEngineStatus {
   running: boolean
   version: string | null
   error: string | null
@@ -42,8 +42,8 @@ export interface ContainerActionResult {
 
 export async function checkContainerEngine(
   engine: ContainerEngine
-): Promise<DockerStatus> {
-  return invoke<DockerStatus>("check_container_engine", { engine })
+): Promise<ContainerEngineStatus> {
+  return invoke<ContainerEngineStatus>("check_container_engine", { engine })
 }
 
 export async function createDatabase(

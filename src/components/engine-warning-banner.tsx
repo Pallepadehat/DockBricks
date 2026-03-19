@@ -1,14 +1,14 @@
 import { AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
 
-type DockerWarningBannerProps = {
+type EngineWarningBannerProps = {
   engineLabel: string;
   onRetry: () => void;
 };
 
-export function DockerWarningBanner({
+export function EngineWarningBanner({
   engineLabel,
   onRetry,
-}: DockerWarningBannerProps) {
+}: EngineWarningBannerProps) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-destructive/20 bg-destructive/10 px-4 py-3 text-sm">
       <AlertTriangleIcon className="size-4 shrink-0 text-destructive" />

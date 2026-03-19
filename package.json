@@ -3,6 +3,22 @@
   "private": true,
   "version": "0.1.0",
   "description": "Desktop app for managing local Docker/Podman databases",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pallepadehat/DockBricks.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pallepadehat/DockBricks/issues"
+  },
+  "homepage": "https://github.com/pallepadehat/DockBricks#readme",
+  "keywords": [
+    "tauri",
+    "docker",
+    "podman",
+    "database",
+    "desktop"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",

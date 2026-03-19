@@ -1,20 +1,35 @@
 # Releasing DockBricks
 
-## CI and Release Workflows
+DockBricks uses GitHub Actions + `tauri-apps/tauri-action` for cross-platform releases.
 
-- `.github/workflows/ci.yml`
-- `.github/workflows/release.yml`
+## Workflows
 
-Release builds run when you push a tag like `v0.2.0` or trigger manually.
+- CI checks: `.github/workflows/ci.yml`
+- Release pipeline: `.github/workflows/release.yml`
 
-## Signing Setup
+Release workflow runs on:
 
-Add these repository secrets to enable signed artifacts in GitHub Actions:
+- tag push matching `v*` (for example `v0.2.0`)
+- manual `workflow_dispatch`
 
-- `TAURI_SIGNING_PRIVATE_KEY`
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+## 1) Configure Signing Secrets
 
-For macOS signing/notarization add:
+### Tauri updater signing (recommended)
+
+Generate a key pair once:
+
+```bash
+npm run tauri signer generate -w ~/.tauri/dockbricks.key
+```
+
+Add repository secrets:
+
+- `TAURI_SIGNING_PRIVATE_KEY`: contents of the private key file
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: password used during key generation
+
+### macOS signing / notarization (optional but recommended for distribution)
+
+Add:
 
 - `APPLE_CERTIFICATE`
 - `APPLE_CERTIFICATE_PASSWORD`
@@ -23,16 +38,25 @@ For macOS signing/notarization add:
 - `APPLE_PASSWORD`
 - `APPLE_TEAM_ID`
 
-## Create a Release
+## 2) Cut a Release
 
-1. Update version in `package.json` and `src-tauri/Cargo.toml`.
-2. Commit and push changes.
-3. Create and push a tag:
+1. Bump version in:
+   - `package.json`
+   - `src-tauri/Cargo.toml`
+   - `src-tauri/tauri.conf.json`
+2. Commit and push.
+3. Create and push tag:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-4. GitHub release workflow will build artifacts and create a draft release.
-5. Review draft release notes and publish.
+4. Wait for the release workflow to finish.
+5. Open GitHub Releases and publish the generated draft.
+
+## 3) Verify Artifacts
+
+- Confirm each target artifact was uploaded (macOS, Linux, Windows).
+- Confirm signature artifacts are present for updater assets.
+- Smoke test one downloaded package before announcing the release.
