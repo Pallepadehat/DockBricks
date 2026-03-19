@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Category } from "./app-sidebar";
+import type { Category, Database, ServiceName } from "@/types/models";
 import {
   fetchServiceVersions,
   type ServiceVersion,
@@ -55,7 +55,6 @@ const SERVICES = {
   },
 } as const;
 
-type ServiceName = keyof typeof SERVICES;
 type VersionState = {
   options: ServiceVersion[];
   loading: boolean;
@@ -66,19 +65,6 @@ const DEFAULT_VERSION_STATE: VersionState = {
   options: [],
   loading: false,
   error: null,
-};
-
-// ── Public types ──────────────────────────────────────────────────────────────
-
-export type Database = {
-  id: string;
-  containerId?: string;
-  name: string;
-  service: ServiceName;
-  version: string;
-  port: string;
-  password: string;
-  categoryIds: string[];
 };
 
 type CreateDatabaseDialogProps = {

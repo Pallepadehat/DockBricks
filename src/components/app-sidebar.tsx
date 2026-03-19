@@ -1,9 +1,4 @@
-import {
-  HomeIcon,
-  DatabaseIcon,
-  PlusIcon,
-  FolderIcon,
-} from "lucide-react";
+import { HomeIcon, DatabaseIcon, PlusIcon, FolderIcon } from "lucide-react";
 
 import {
   Sidebar,
@@ -15,7 +10,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -23,11 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-export type Category = {
-  id: string;
-  name: string;
-};
+import type { Category } from "@/types/models";
 
 type AppSidebarProps = {
   categories: Category[];
@@ -100,7 +90,6 @@ export function AppSidebar({
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   );
 }
