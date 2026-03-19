@@ -36,6 +36,20 @@ pub struct ServiceVersion {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ContainerRuntimeStatus {
+    pub exists: bool,
+    pub running: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContainerActionResult {
+    pub success: bool,
+    pub not_found: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct DockerHubTagsResponse {
     next: Option<String>,
     results: Vec<DockerHubTag>,
@@ -232,6 +246,10 @@ fn env_vars(service: &str, password: &str) -> Vec<(String, String)> {
     vars
 }
 
+fn is_not_found_error(stderr: &str) -> bool {
+    stderr.contains("No such container") || stderr.contains("No such object")
+}
+
 // ── Commands ──────────────────────────────────────────────────────────────────
 
 /// Check whether the Docker daemon is reachable.
@@ -327,6 +345,123 @@ fn create_database(req: CreateDatabaseRequest) -> CreateDatabaseResult {
 }
 
 #[tauri::command]
+fn inspect_container(target: String) -> ContainerRuntimeStatus {
+    let output = Command::new("docker")
+        .args(["inspect", "--format", "{{.State.Running}}", &target])
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            let raw = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            ContainerRuntimeStatus {
+                exists: true,
+                running: raw.eq_ignore_ascii_case("true"),
+                error: None,
+            }
+        }
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            if is_not_found_error(&stderr) {
+                ContainerRuntimeStatus {
+                    exists: false,
+                    running: false,
+                    error: None,
+                }
+            } else {
+                ContainerRuntimeStatus {
+                    exists: false,
+                    running: false,
+                    error: Some(stderr),
+                }
+            }
+        }
+        Err(e) => ContainerRuntimeStatus {
+            exists: false,
+            running: false,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+#[tauri::command]
+fn start_container(target: String) -> ContainerActionResult {
+    let output = Command::new("docker").args(["start", &target]).output();
+
+    match output {
+        Ok(out) if out.status.success() => ContainerActionResult {
+            success: true,
+            not_found: false,
+            error: None,
+        },
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            ContainerActionResult {
+                success: false,
+                not_found: is_not_found_error(&stderr),
+                error: Some(stderr),
+            }
+        }
+        Err(e) => ContainerActionResult {
+            success: false,
+            not_found: false,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+#[tauri::command]
+fn stop_container(target: String) -> ContainerActionResult {
+    let output = Command::new("docker").args(["stop", &target]).output();
+
+    match output {
+        Ok(out) if out.status.success() => ContainerActionResult {
+            success: true,
+            not_found: false,
+            error: None,
+        },
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            ContainerActionResult {
+                success: false,
+                not_found: is_not_found_error(&stderr),
+                error: Some(stderr),
+            }
+        }
+        Err(e) => ContainerActionResult {
+            success: false,
+            not_found: false,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+#[tauri::command]
+fn delete_container(target: String) -> ContainerActionResult {
+    let output = Command::new("docker").args(["rm", "-f", &target]).output();
+
+    match output {
+        Ok(out) if out.status.success() => ContainerActionResult {
+            success: true,
+            not_found: false,
+            error: None,
+        },
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            ContainerActionResult {
+                success: false,
+                not_found: is_not_found_error(&stderr),
+                error: Some(stderr),
+            }
+        }
+        Err(e) => ContainerActionResult {
+            success: false,
+            not_found: false,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+#[tauri::command]
 async fn fetch_service_versions(service: String) -> Result<Vec<ServiceVersion>, String> {
     let versions = fetch_service_versions_from_docker_hub(&service).await?;
     if versions.is_empty() {
@@ -345,6 +480,10 @@ pub fn run() {
             check_docker,
             create_database,
             fetch_service_versions,
+            inspect_container,
+            start_container,
+            stop_container,
+            delete_container,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

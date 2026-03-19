@@ -26,6 +26,18 @@ export interface ServiceVersion {
   is_latest: boolean
 }
 
+export interface ContainerRuntimeStatus {
+  exists: boolean
+  running: boolean
+  error: string | null
+}
+
+export interface ContainerActionResult {
+  success: boolean
+  not_found: boolean
+  error: string | null
+}
+
 export async function checkDocker(): Promise<DockerStatus> {
   return invoke<DockerStatus>("check_docker")
 }
@@ -40,4 +52,28 @@ export async function fetchServiceVersions(
   service: string
 ): Promise<ServiceVersion[]> {
   return invoke<ServiceVersion[]>("fetch_service_versions", { service })
+}
+
+export async function inspectContainer(
+  target: string
+): Promise<ContainerRuntimeStatus> {
+  return invoke<ContainerRuntimeStatus>("inspect_container", { target })
+}
+
+export async function startContainer(
+  target: string
+): Promise<ContainerActionResult> {
+  return invoke<ContainerActionResult>("start_container", { target })
+}
+
+export async function stopContainer(
+  target: string
+): Promise<ContainerActionResult> {
+  return invoke<ContainerActionResult>("stop_container", { target })
+}
+
+export async function deleteContainer(
+  target: string
+): Promise<ContainerActionResult> {
+  return invoke<ContainerActionResult>("delete_container", { target })
 }

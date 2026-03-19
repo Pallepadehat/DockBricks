@@ -317,7 +317,7 @@ export function CreateDatabaseDialog({
               <Select
                 value={service}
                 onValueChange={handleServiceChange}
-                disabled={isCreating}
+                disabled={isCreating || mode === "edit"}
               >
                 <SelectTrigger id="db-service" className="w-full">
                   <SelectValue placeholder="Select…" />
@@ -330,6 +330,11 @@ export function CreateDatabaseDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {mode === "edit" && (
+                <p className="text-xs text-muted-foreground">
+                  Service cannot be changed after creation.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
