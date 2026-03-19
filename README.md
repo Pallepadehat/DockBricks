@@ -3,6 +3,8 @@
 DockBricks is a desktop app for creating and managing local container-backed databases.
 It supports both Docker and Podman with a clean, native-feeling Tauri UI.
 
+![DockBricks App Preview](public/AppPreview.png)
+
 ## Highlights
 
 - PostgreSQL, MySQL, MariaDB, and Redis presets
