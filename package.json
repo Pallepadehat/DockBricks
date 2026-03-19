@@ -2,12 +2,15 @@
   "name": "dockbricks",
   "private": true,
   "version": "0.1.0",
+  "description": "Desktop app for managing local Docker/Podman databases",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

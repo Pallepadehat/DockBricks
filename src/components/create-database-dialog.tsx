@@ -78,6 +78,7 @@ type CreateDatabaseDialogProps = {
   isCreating?: boolean;
   createError?: string | null;
   dockerRunning?: boolean;
+  engineLabel?: string;
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ export function CreateDatabaseDialog({
   isCreating = false,
   createError = null,
   dockerRunning = true,
+  engineLabel = "Docker",
 }: CreateDatabaseDialogProps) {
   const [name, setName] = React.useState("");
   const [service, setService] = React.useState<ServiceName | "">("");
@@ -265,7 +267,8 @@ export function CreateDatabaseDialog({
           <div className="flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
             <AlertTriangleIcon className="size-3.5 shrink-0" />
             <span>
-              Docker is not running. Start Docker to create a database.
+              {engineLabel} is not running. Start {engineLabel} to create a
+              database.
             </span>
           </div>
         )}

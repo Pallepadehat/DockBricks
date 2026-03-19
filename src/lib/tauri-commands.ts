@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
+import type { ContainerEngine } from "@/types/models"
 
 export interface DockerStatus {
   running: boolean
@@ -7,6 +8,7 @@ export interface DockerStatus {
 }
 
 export interface CreateDatabaseRequest {
+  engine: ContainerEngine
   name: string
   service: string
   version: string
@@ -38,8 +40,10 @@ export interface ContainerActionResult {
   error: string | null
 }
 
-export async function checkDocker(): Promise<DockerStatus> {
-  return invoke<DockerStatus>("check_docker")
+export async function checkContainerEngine(
+  engine: ContainerEngine
+): Promise<DockerStatus> {
+  return invoke<DockerStatus>("check_container_engine", { engine })
 }
 
 export async function createDatabase(
@@ -55,25 +59,29 @@ export async function fetchServiceVersions(
 }
 
 export async function inspectContainer(
+  engine: ContainerEngine,
   target: string
 ): Promise<ContainerRuntimeStatus> {
-  return invoke<ContainerRuntimeStatus>("inspect_container", { target })
+  return invoke<ContainerRuntimeStatus>("inspect_container", { engine, target })
 }
 
 export async function startContainer(
+  engine: ContainerEngine,
   target: string
 ): Promise<ContainerActionResult> {
-  return invoke<ContainerActionResult>("start_container", { target })
+  return invoke<ContainerActionResult>("start_container", { engine, target })
 }
 
 export async function stopContainer(
+  engine: ContainerEngine,
   target: string
 ): Promise<ContainerActionResult> {
-  return invoke<ContainerActionResult>("stop_container", { target })
+  return invoke<ContainerActionResult>("stop_container", { engine, target })
 }
 
 export async function deleteContainer(
+  engine: ContainerEngine,
   target: string
 ): Promise<ContainerActionResult> {
-  return invoke<ContainerActionResult>("delete_container", { target })
+  return invoke<ContainerActionResult>("delete_container", { engine, target })
 }

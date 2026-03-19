@@ -1,4 +1,10 @@
-import { HomeIcon, DatabaseIcon, PlusIcon, FolderIcon } from "lucide-react";
+import {
+  HomeIcon,
+  DatabaseIcon,
+  PlusIcon,
+  FolderIcon,
+  Settings,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -25,6 +31,7 @@ type AppSidebarProps = {
   onSelectCategory: (id: string | null) => void;
   onCreateCategory: () => void;
   onCreateDatabase: () => void;
+  onOpenSettings: () => void;
 };
 
 export function AppSidebar({
@@ -33,6 +40,7 @@ export function AppSidebar({
   onSelectCategory,
   onCreateCategory,
   onCreateDatabase,
+  onOpenSettings,
 }: AppSidebarProps) {
   return (
     <Sidebar collapsible="none" className="border-r">
@@ -71,11 +79,12 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-2 border-t">
+      <SidebarFooter className="border-t p-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-1 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
               <PlusIcon className="size-4" />
+              Add
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-44">
@@ -89,6 +98,16 @@ export function AppSidebar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <SidebarMenuButton
+          type="button"
+          onClick={onOpenSettings}
+          className="mb-1 flex items-center gap-1 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+          aria-label="Open settings"
+          title="Settings"
+        >
+          <Settings className="size-4" />
+          Settings
+        </SidebarMenuButton>
       </SidebarFooter>
     </Sidebar>
   );

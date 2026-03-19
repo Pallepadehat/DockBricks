@@ -14,6 +14,7 @@ pub struct DockerStatus {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateDatabaseRequest {
+    pub engine: String, // "docker" | "podman"
     pub name: String,
     pub service: String, // "MariaDB" | "MySQL" | "PostgreSQL" | "Redis"
     pub version: String, // e.g. "17.x (Latest)" → mapped to docker tag
@@ -250,14 +251,29 @@ fn is_not_found_error(stderr: &str) -> bool {
     stderr.contains("No such container") || stderr.contains("No such object")
 }
 
+fn normalize_engine(engine: &str) -> &'static str {
+    match engine.to_lowercase().as_str() {
+        "podman" | "pubman" => "podman",
+        _ => "docker",
+    }
+}
+
 // ── Commands ──────────────────────────────────────────────────────────────────
 
-/// Check whether the Docker daemon is reachable.
+/// Check whether the selected container engine daemon/service is reachable.
 #[tauri::command]
-fn check_docker() -> DockerStatus {
-    let output = Command::new("docker")
-        .args(["version", "--format", "{{.Server.Version}}"])
-        .output();
+fn check_container_engine(engine: String) -> DockerStatus {
+    let engine_bin = normalize_engine(&engine);
+    let output = if engine_bin == "podman" {
+        // Podman is daemonless for most local setups, so check client availability.
+        Command::new(engine_bin)
+            .args(["version", "--format", "{{.Client.Version}}"])
+            .output()
+    } else {
+        Command::new(engine_bin)
+            .args(["version", "--format", "{{.Server.Version}}"])
+            .output()
+    };
 
     match output {
         Ok(out) if out.status.success() => {
@@ -274,7 +290,11 @@ fn check_docker() -> DockerStatus {
                 running: false,
                 version: None,
                 error: Some(if err.is_empty() {
-                    "Docker daemon is not running".into()
+                    if engine_bin == "podman" {
+                        "Podman is not available".into()
+                    } else {
+                        format!("{} is not running", engine_bin)
+                    }
                 } else {
                     err
                 }),
@@ -283,7 +303,7 @@ fn check_docker() -> DockerStatus {
         Err(e) => DockerStatus {
             running: false,
             version: None,
-            error: Some(format!("Could not find docker CLI: {}", e)),
+            error: Some(format!("Could not find {} CLI: {}", engine_bin, e)),
         },
     }
 }
@@ -291,6 +311,7 @@ fn check_docker() -> DockerStatus {
 /// Pull the image if needed and start a named container.
 #[tauri::command]
 fn create_database(req: CreateDatabaseRequest) -> CreateDatabaseResult {
+    let engine_bin = normalize_engine(&req.engine);
     let image = resolve_image(&req.service, &req.version);
     let container_name = format!("dockbricks-{}", req.name.to_lowercase().replace(' ', "-"));
 
@@ -317,7 +338,7 @@ fn create_database(req: CreateDatabaseRequest) -> CreateDatabaseResult {
     // Image last
     args.push(image.clone());
 
-    let output = Command::new("docker").args(&args).output();
+    let output = Command::new(engine_bin).args(&args).output();
 
     match output {
         Ok(out) if out.status.success() => {
@@ -345,8 +366,9 @@ fn create_database(req: CreateDatabaseRequest) -> CreateDatabaseResult {
 }
 
 #[tauri::command]
-fn inspect_container(target: String) -> ContainerRuntimeStatus {
-    let output = Command::new("docker")
+fn inspect_container(engine: String, target: String) -> ContainerRuntimeStatus {
+    let engine_bin = normalize_engine(&engine);
+    let output = Command::new(engine_bin)
         .args(["inspect", "--format", "{{.State.Running}}", &target])
         .output();
 
@@ -384,8 +406,9 @@ fn inspect_container(target: String) -> ContainerRuntimeStatus {
 }
 
 #[tauri::command]
-fn start_container(target: String) -> ContainerActionResult {
-    let output = Command::new("docker").args(["start", &target]).output();
+fn start_container(engine: String, target: String) -> ContainerActionResult {
+    let engine_bin = normalize_engine(&engine);
+    let output = Command::new(engine_bin).args(["start", &target]).output();
 
     match output {
         Ok(out) if out.status.success() => ContainerActionResult {
@@ -410,8 +433,9 @@ fn start_container(target: String) -> ContainerActionResult {
 }
 
 #[tauri::command]
-fn stop_container(target: String) -> ContainerActionResult {
-    let output = Command::new("docker").args(["stop", &target]).output();
+fn stop_container(engine: String, target: String) -> ContainerActionResult {
+    let engine_bin = normalize_engine(&engine);
+    let output = Command::new(engine_bin).args(["stop", &target]).output();
 
     match output {
         Ok(out) if out.status.success() => ContainerActionResult {
@@ -436,8 +460,9 @@ fn stop_container(target: String) -> ContainerActionResult {
 }
 
 #[tauri::command]
-fn delete_container(target: String) -> ContainerActionResult {
-    let output = Command::new("docker").args(["rm", "-f", &target]).output();
+fn delete_container(engine: String, target: String) -> ContainerActionResult {
+    let engine_bin = normalize_engine(&engine);
+    let output = Command::new(engine_bin).args(["rm", "-f", &target]).output();
 
     match output {
         Ok(out) if out.status.success() => ContainerActionResult {
@@ -477,7 +502,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            check_docker,
+            check_container_engine,
             create_database,
             fetch_service_versions,
             inspect_container,

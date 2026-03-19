@@ -4,7 +4,7 @@ DockBricks uses a lightweight feature-oriented frontend structure:
 
 - `src/types`: shared domain models (`Category`, `Database`, service enums).
 - `src/lib`: pure utility functions and Tauri command wrappers.
-- `src/hooks`: stateful side-effect orchestration (Docker health/runtime polling).
+- `src/hooks`: stateful side-effect orchestration (engine health/runtime polling).
 - `src/components`: UI building blocks and dialogs.
 - `src/App.tsx`: app composition/orchestration layer.
 
@@ -17,11 +17,11 @@ DockBricks uses a lightweight feature-oriented frontend structure:
 
 ## Runtime State Model
 
-Docker runtime state is tracked per database by ID with:
+Container runtime state is tracked per database by ID with:
 
 - `exists`
 - `running`
 - `loading`
 - `error`
 
-This allows async state transitions without coupling UI rendering to Docker command internals.
+This allows async state transitions without coupling UI rendering to Docker/Podman command internals.

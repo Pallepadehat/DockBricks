@@ -1,3 +1,5 @@
+export type ContainerEngine = "docker" | "podman";
+
 export type ServiceName = "MariaDB" | "MySQL" | "PostgreSQL" | "Redis";
 
 export type Category = {

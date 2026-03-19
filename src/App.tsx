@@ -8,16 +8,18 @@ import { CreateCategoryDialog } from "@/components/create-category-dialog";
 import { CreateDatabaseDialog } from "@/components/create-database-dialog";
 import { DatabaseCard } from "@/components/databases/database-card";
 import { DeleteDatabaseDialog } from "@/components/dialogs/delete-database-dialog";
+import { SettingsDialog } from "@/components/dialogs/settings-dialog";
 import { DockerWarningBanner } from "@/components/docker-warning-banner";
+import { EngineOnboarding } from "@/components/onboarding/engine-onboarding";
 import {
   buildConnectionString,
   humanizeCreateError,
 } from "@/lib/database-utils";
 import { createDatabase } from "@/lib/tauri-commands";
 import { useDatabaseRuntime } from "@/hooks/use-database-runtime";
-import { useDockerHealth } from "@/hooks/use-docker-health";
+import { useContainerEngineHealth } from "@/hooks/use-docker-health";
 import { usePersistentState } from "@/hooks/use-persistent-state";
-import type { Category, Database } from "@/types/models";
+import type { Category, ContainerEngine, Database } from "@/types/models";
 
 export default function App() {
   const [categories, setCategories] = usePersistentState<Category[]>(
@@ -28,12 +30,17 @@ export default function App() {
     "dockbricks_databases",
     [],
   );
+  const [containerEngine, setContainerEngine] = usePersistentState<ContainerEngine | null>(
+    "dockbricks_container_engine",
+    null,
+  );
 
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
     null,
   );
   const [showCreateCategory, setShowCreateCategory] = React.useState(false);
   const [showCreateDatabase, setShowCreateDatabase] = React.useState(false);
+  const [showSettings, setShowSettings] = React.useState(false);
   const [showEditDatabase, setShowEditDatabase] = React.useState(false);
   const [editingDatabaseId, setEditingDatabaseId] = React.useState<
     string | null
@@ -47,8 +54,11 @@ export default function App() {
   const [deleting, setDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
+  const selectedEngine: ContainerEngine = containerEngine ?? "docker";
+  const engineLabel = selectedEngine === "docker" ? "Docker" : "Podman";
+
   const { dockerStatus, dockerChecking, showDockerWarning, pollDocker } =
-    useDockerHealth();
+    useContainerEngineHealth(selectedEngine);
 
   const {
     runtimeByDbId,
@@ -57,7 +67,11 @@ export default function App() {
     toggleContainerState,
     deleteContainerForDatabase,
     clearRuntimeForDatabase,
-  } = useDatabaseRuntime(databases, dockerStatus?.running ?? false);
+  } = useDatabaseRuntime(databases, selectedEngine, dockerStatus?.running ?? false);
+
+  if (!containerEngine) {
+    return <EngineOnboarding onSelectEngine={setContainerEngine} />;
+  }
 
   const editingDatabase =
     editingDatabaseId === null
@@ -87,6 +101,7 @@ export default function App() {
 
     try {
       const result = await createDatabase({
+        engine: selectedEngine,
         name: data.name,
         service: data.service,
         version: data.version,
@@ -196,11 +211,13 @@ export default function App() {
           setCreateError(null);
           setShowCreateDatabase(true);
         }}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       <SidebarInset className="flex flex-col overflow-hidden">
-        {showDockerWarning && <DockerWarningBanner onRetry={pollDocker} />}
-
+        {showDockerWarning && (
+          <DockerWarningBanner engineLabel={engineLabel} onRetry={pollDocker} />
+        )}
         {!dockerChecking && dockerStatus?.running && <div className="hidden" />}
 
         <main className="flex flex-1 flex-col items-center gap-3 text-center overflow-auto">
@@ -264,6 +281,7 @@ export default function App() {
         isCreating={isCreating}
         createError={createError}
         dockerRunning={dockerStatus?.running ?? false}
+        engineLabel={engineLabel}
       />
 
       <CreateDatabaseDialog
@@ -289,9 +307,11 @@ export default function App() {
             : null
         }
         dockerRunning={dockerStatus?.running ?? false}
+        engineLabel={engineLabel}
       />
 
       <DeleteDatabaseDialog
+        engineLabel={engineLabel}
         open={pendingDeleteDatabaseId !== null}
         onOpenChange={(open) => {
           if (!open && !deleting) {
@@ -302,6 +322,15 @@ export default function App() {
         deleting={deleting}
         error={deleteError}
         onConfirm={() => void handleConfirmDeleteDatabase()}
+      />
+
+      <SettingsDialog
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        currentEngine={selectedEngine}
+        onSave={(engine) => {
+          setContainerEngine(engine);
+        }}
       />
     </SidebarProvider>
   );

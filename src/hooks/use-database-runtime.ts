@@ -6,7 +6,7 @@ import {
   stopContainer,
 } from "@/lib/tauri-commands";
 import { containerTargetFor } from "@/lib/database-utils";
-import type { Database } from "@/types/models";
+import type { ContainerEngine, Database } from "@/types/models";
 
 export type RuntimeState = {
   exists: boolean;
@@ -19,7 +19,12 @@ type RuntimeActionResult =
   | { ok: true }
   | { ok: false; error: string; notFound?: boolean };
 
-export function useDatabaseRuntime(databases: Database[], dockerRunning: boolean) {
+export function useDatabaseRuntime(
+  databases: Database[],
+  engine: ContainerEngine,
+  dockerRunning: boolean,
+) {
+  const engineLabel = engine === "docker" ? "Docker" : "Podman";
   const [runtimeByDbId, setRuntimeByDbId] = React.useState<Record<string, RuntimeState>>({});
   const [actionBusyByDbId, setActionBusyByDbId] = React.useState<Record<string, boolean>>({});
 
@@ -45,7 +50,7 @@ export function useDatabaseRuntime(databases: Database[], dockerRunning: boolean
       }));
 
       try {
-        const status = await inspectContainer(containerTargetFor(db));
+        const status = await inspectContainer(engine, containerTargetFor(db));
         setRuntimeByDbId((prev) => ({
           ...prev,
           [db.id]: {
@@ -67,7 +72,7 @@ export function useDatabaseRuntime(databases: Database[], dockerRunning: boolean
         }));
       }
     },
-    [dockerRunning],
+    [dockerRunning, engine],
   );
 
   React.useEffect(() => {
@@ -77,18 +82,13 @@ export function useDatabaseRuntime(databases: Database[], dockerRunning: boolean
     }
 
     void Promise.all(databases.map((db) => refreshContainerState(db)));
-
-    const timer = setInterval(() => {
-      void Promise.all(databases.map((db) => refreshContainerState(db)));
-    }, 10_000);
-
-    return () => clearInterval(timer);
+    return undefined;
   }, [databases, dockerRunning, refreshContainerState]);
 
   const toggleContainerState = React.useCallback(
     async (db: Database): Promise<RuntimeActionResult> => {
       if (!dockerRunning) {
-        return { ok: false, error: "Docker is not running." };
+        return { ok: false, error: `${engineLabel} is not running.` };
       }
 
       const runtime = runtimeByDbId[db.id];
@@ -101,8 +101,8 @@ export function useDatabaseRuntime(databases: Database[], dockerRunning: boolean
 
       try {
         const result = runtime.running
-          ? await stopContainer(target)
-          : await startContainer(target);
+          ? await stopContainer(engine, target)
+          : await startContainer(engine, target);
 
         if (!result.success) {
           return { ok: false, error: result.error ?? "Failed to change container state." };
@@ -116,17 +116,17 @@ export function useDatabaseRuntime(databases: Database[], dockerRunning: boolean
         void refreshContainerState(db);
       }
     },
-    [dockerRunning, refreshContainerState, runtimeByDbId],
+    [dockerRunning, engine, engineLabel, refreshContainerState, runtimeByDbId],
   );
 
   const deleteContainerForDatabase = React.useCallback(
     async (db: Database): Promise<RuntimeActionResult> => {
       if (!dockerRunning) {
-        return { ok: false, error: "Docker is not running." };
+        return { ok: false, error: `${engineLabel} is not running.` };
       }
 
       try {
-        const result = await deleteContainer(containerTargetFor(db));
+        const result = await deleteContainer(engine, containerTargetFor(db));
         if (!result.success && !result.not_found) {
           return { ok: false, error: result.error ?? "Failed to delete container." };
         }
@@ -136,7 +136,7 @@ export function useDatabaseRuntime(databases: Database[], dockerRunning: boolean
         return { ok: false, error: String(error) };
       }
     },
-    [dockerRunning],
+    [dockerRunning, engine, engineLabel],
   );
 
   const clearRuntimeForDatabase = React.useCallback((databaseId: string) => {

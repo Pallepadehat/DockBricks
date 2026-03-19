@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 type DeleteDatabaseDialogProps = {
+  engineLabel: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   deleting: boolean;
@@ -20,6 +21,7 @@ type DeleteDatabaseDialogProps = {
 };
 
 export function DeleteDatabaseDialog({
+  engineLabel,
   open,
   onOpenChange,
   deleting,
@@ -32,7 +34,7 @@ export function DeleteDatabaseDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Database?</AlertDialogTitle>
           <AlertDialogDescription>
-            This removes the local entry and deletes the Docker container.
+            This removes the local entry and deletes the {engineLabel} container.
           </AlertDialogDescription>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </AlertDialogHeader>
