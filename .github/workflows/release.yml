@@ -55,6 +55,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: macOS signing notice
+        if: ${{ matrix.platform == 'macos-latest' }}
+        run: |
+          echo "macOS builds are smoothest for users when Apple signing/notarization secrets are configured."
+          echo "See docs/releasing.md for APPLE_* secret setup."
+
       - name: Build and publish
         uses: tauri-apps/tauri-action@v0
         env:

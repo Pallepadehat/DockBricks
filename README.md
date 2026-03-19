@@ -76,6 +76,7 @@ For best macOS user experience, configure Apple signing/notarization secrets (se
 - [Contributing guide](./CONTRIBUTING.md)
 - [Architecture notes](./docs-architecture.md)
 - [Release guide](./docs/releasing.md)
+- [Website download setup](./docs/website-downloads.md)
 - [Security policy](./SECURITY.md)
 - [Code of conduct](./CODE_OF_CONDUCT.md)
 

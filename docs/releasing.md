@@ -33,7 +33,7 @@ DockBricks is configured with updater plugin endpoint:
 
 and a fixed updater public key in `src-tauri/tauri.conf.json`.
 
-### macOS signing / notarization (optional but recommended for distribution)
+### macOS signing / notarization (optional)
 
 Add:
 
@@ -53,6 +53,31 @@ base64 -i certificate.p12 | pbcopy
 ```
 
 Use that copied value as the `APPLE_CERTIFICATE` secret.
+
+### Full Apple Setup (paid Developer account)
+
+1. Create a Developer ID Application certificate in Apple Developer portal.
+2. Download and install it in Keychain Access.
+3. Export that certificate from Keychain as `.p12` with a password.
+4. Base64 encode the `.p12` and save as GitHub secret:
+
+```bash
+base64 -i dockbricks-dev-id.p12 | pbcopy
+```
+
+5. Add these repository secrets:
+   - `APPLE_CERTIFICATE`: base64 output above
+   - `APPLE_CERTIFICATE_PASSWORD`: the `.p12` export password
+   - `APPLE_SIGNING_IDENTITY`: exact identity string, e.g. `Developer ID Application: Your Name (TEAMID)`
+   - `APPLE_ID`: your Apple ID email
+   - `APPLE_PASSWORD`: Apple app-specific password (not your normal Apple ID password)
+   - `APPLE_TEAM_ID`: your Apple Team ID
+
+Get signing identity from your Mac:
+
+```bash
+security find-identity -v -p codesigning
+```
 
 ## 2) Cut a Release
 
@@ -83,6 +108,7 @@ This is the primary release path. Artifacts are built on GitHub-hosted runners, 
 
 - Without Apple signing/notarization, macOS users can still run the app but will see Gatekeeper warnings and may need manual allow/open steps.
 - With Apple signing + notarization configured, installs and first launch are much smoother for end users.
+- Current workflow is configured to release without Apple notarization so builds stay reliable.
 
 ## Local Signed Build (macOS/Linux)
 
