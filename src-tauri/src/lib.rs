@@ -2,6 +2,7 @@ use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, process::Command};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -12,7 +13,7 @@ pub struct DockerStatus {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CreateDatabaseRequest {
     pub engine: String, // "docker" | "podman"
     pub name: String,
@@ -27,6 +28,13 @@ pub struct CreateDatabaseResult {
     pub success: bool,
     pub container_id: Option<String>,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RecreateDatabaseRequest {
+    pub engine: String,
+    pub target: String,
+    pub req: CreateDatabaseRequest,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -258,6 +266,15 @@ fn normalize_engine(engine: &str) -> &'static str {
     }
 }
 
+fn normalize_container_name(name: &str) -> String {
+    let collapsed = name
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
+        .to_lowercase();
+    format!("dockbricks-{}", collapsed)
+}
+
 // ── Commands ──────────────────────────────────────────────────────────────────
 
 /// Check whether the selected container engine daemon/service is reachable.
@@ -310,10 +327,20 @@ fn check_container_engine(engine: String) -> DockerStatus {
 
 /// Pull the image if needed and start a named container.
 #[tauri::command]
-fn create_database(req: CreateDatabaseRequest) -> CreateDatabaseResult {
+async fn create_database(req: CreateDatabaseRequest) -> CreateDatabaseResult {
+    tauri::async_runtime::spawn_blocking(move || create_database_blocking(req))
+        .await
+        .unwrap_or_else(|e| CreateDatabaseResult {
+            success: false,
+            container_id: None,
+            error: Some(format!("Failed to create database in background task: {e}")),
+        })
+}
+
+fn create_database_blocking(req: CreateDatabaseRequest) -> CreateDatabaseResult {
     let engine_bin = normalize_engine(&req.engine);
     let image = resolve_image(&req.service, &req.version);
-    let container_name = format!("dockbricks-{}", req.name.to_lowercase().replace(' ', "-"));
+    let container_name = normalize_container_name(&req.name);
 
     // Build the docker run command
     let mut args: Vec<String> = vec![
@@ -360,6 +387,166 @@ fn create_database(req: CreateDatabaseRequest) -> CreateDatabaseResult {
         Err(e) => CreateDatabaseResult {
             success: false,
             container_id: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+#[tauri::command]
+async fn recreate_database(
+    engine: String,
+    target: String,
+    req: CreateDatabaseRequest,
+) -> CreateDatabaseResult {
+    tauri::async_runtime::spawn_blocking(move || recreate_database_blocking(engine, target, req))
+        .await
+        .unwrap_or_else(|e| CreateDatabaseResult {
+            success: false,
+            container_id: None,
+            error: Some(format!(
+                "Failed to recreate database container in background task: {e}"
+            )),
+        })
+}
+
+fn recreate_database_blocking(
+    engine: String,
+    target: String,
+    mut req: CreateDatabaseRequest,
+) -> CreateDatabaseResult {
+    let engine_bin = normalize_engine(&engine);
+    req.engine = engine.clone();
+
+    let inspect = Command::new(engine_bin)
+        .args(["inspect", "--format", "{{.Name}}|{{.State.Running}}", &target])
+        .output();
+
+    let (original_name, was_running) = match inspect {
+        Ok(out) if out.status.success() => {
+            let raw = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            let mut parts = raw.split('|');
+            let name = parts
+                .next()
+                .unwrap_or("")
+                .trim()
+                .trim_start_matches('/')
+                .to_string();
+            let running = parts
+                .next()
+                .unwrap_or("false")
+                .trim()
+                .eq_ignore_ascii_case("true");
+            (name, running)
+        }
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return CreateDatabaseResult {
+                success: false,
+                container_id: None,
+                error: Some(if stderr.is_empty() {
+                    "Failed to inspect existing container before recreate.".into()
+                } else {
+                    stderr
+                }),
+            };
+        }
+        Err(e) => {
+            return CreateDatabaseResult {
+                success: false,
+                container_id: None,
+                error: Some(e.to_string()),
+            };
+        }
+    };
+
+    let backup_suffix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let backup_name = format!("dockbricks-backup-{}", backup_suffix);
+
+    let rename_old = Command::new(engine_bin)
+        .args(["rename", &target, &backup_name])
+        .output();
+    match rename_old {
+        Ok(out) if out.status.success() => {}
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return CreateDatabaseResult {
+                success: false,
+                container_id: None,
+                error: Some(if stderr.is_empty() {
+                    "Failed to prepare container for recreate (rename step).".into()
+                } else {
+                    stderr
+                }),
+            };
+        }
+        Err(e) => {
+            return CreateDatabaseResult {
+                success: false,
+                container_id: None,
+                error: Some(e.to_string()),
+            };
+        }
+    }
+
+    let created = create_database_blocking(req.clone());
+    if created.success {
+        if !was_running {
+            let target_after_create = created
+                .container_id
+                .clone()
+                .unwrap_or_else(|| normalize_container_name(&req.name));
+            let _ = Command::new(engine_bin)
+                .args(["stop", &target_after_create])
+                .output();
+        }
+
+        let _ = Command::new(engine_bin)
+            .args(["rm", "-f", "-v", &backup_name])
+            .output();
+        return created;
+    }
+
+    if !original_name.is_empty() {
+        let _ = Command::new(engine_bin)
+            .args(["rename", &backup_name, &original_name])
+            .output();
+    }
+
+    CreateDatabaseResult {
+        success: false,
+        container_id: None,
+        error: created.error,
+    }
+}
+
+#[tauri::command]
+fn rename_container(engine: String, target: String, new_name: String) -> ContainerActionResult {
+    let engine_bin = normalize_engine(&engine);
+    let normalized_new_name = normalize_container_name(&new_name);
+    let output = Command::new(engine_bin)
+        .args(["rename", &target, &normalized_new_name])
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => ContainerActionResult {
+            success: true,
+            not_found: false,
+            error: None,
+        },
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            ContainerActionResult {
+                success: false,
+                not_found: is_not_found_error(&stderr),
+                error: Some(stderr),
+            }
+        }
+        Err(e) => ContainerActionResult {
+            success: false,
+            not_found: false,
             error: Some(e.to_string()),
         },
     }
@@ -462,16 +649,38 @@ fn stop_container(engine: String, target: String) -> ContainerActionResult {
 #[tauri::command]
 fn delete_container(engine: String, target: String) -> ContainerActionResult {
     let engine_bin = normalize_engine(&engine);
+    // Capture image id before deleting the container so we can attempt image cleanup after.
+    let image_id = Command::new(engine_bin)
+        .args(["inspect", "--format", "{{.Image}}", &target])
+        .output()
+        .ok()
+        .and_then(|out| {
+            if out.status.success() {
+                let raw = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if raw.is_empty() { None } else { Some(raw) }
+            } else {
+                None
+            }
+        });
+
     let output = Command::new(engine_bin)
-        .args(["rm", "-f", &target])
+        .args(["rm", "-f", "-v", &target])
         .output();
 
     match output {
-        Ok(out) if out.status.success() => ContainerActionResult {
-            success: true,
-            not_found: false,
-            error: None,
-        },
+        Ok(out) if out.status.success() => {
+            if let Some(image) = image_id {
+                // Best effort: remove the image. If other containers still reference it,
+                // keep the delete successful and leave image cleanup to the user/runtime.
+                let _ = Command::new(engine_bin).args(["rmi", &image]).output();
+            }
+
+            ContainerActionResult {
+                success: true,
+                not_found: false,
+                error: None,
+            }
+        }
         Ok(out) => {
             let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
             ContainerActionResult {
@@ -507,11 +716,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             check_container_engine,
             create_database,
+            recreate_database,
             fetch_service_versions,
             inspect_container,
             start_container,
             stop_container,
             delete_container,
+            rename_container,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

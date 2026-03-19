@@ -2,7 +2,7 @@ import type { Database } from "@/types/models";
 
 export function containerTargetFor(db: Database): string {
   if (db.containerId) return db.containerId;
-  return `dockbricks-${db.name.toLowerCase().replace(/\s+/g, "-")}`;
+  return `dockbricks-${db.name.trim().toLowerCase().replace(/\s+/g, "-")}`;
 }
 
 export function resolveConnectionPassword(db: Database): string {

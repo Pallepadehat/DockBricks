@@ -34,7 +34,8 @@ export function DeleteDatabaseDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Database?</AlertDialogTitle>
           <AlertDialogDescription>
-            This removes the local entry and deletes the {engineLabel} container.
+            This removes the local entry, deletes the {engineLabel} container,
+            removes attached anonymous volumes, and attempts to remove the image.
           </AlertDialogDescription>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </AlertDialogHeader>

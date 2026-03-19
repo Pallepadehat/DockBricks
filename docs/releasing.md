@@ -24,8 +24,16 @@ npm run tauri signer generate -w ~/.tauri/dockbricks.key
 
 Add repository secrets:
 
-- `TAURI_SIGNING_PRIVATE_KEY`: contents of the private key file
+- `TAURI_SIGNING_PRIVATE_KEY`: either
+  - raw contents of the private key file, or
+  - base64-encoded contents of that key file
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: password used during key generation
+
+If you store the key as base64, use a single line (no wrapped lines):
+
+```bash
+base64 < ~/.tauri/dockbricks.key | tr -d '\n'
+```
 
 DockBricks is configured with updater plugin endpoint:
 

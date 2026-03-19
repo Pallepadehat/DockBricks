@@ -22,6 +22,12 @@ export interface CreateDatabaseResult {
   error: string | null
 }
 
+export interface RecreateDatabaseRequest {
+  engine: ContainerEngine
+  target: string
+  req: CreateDatabaseRequest
+}
+
 export interface ServiceVersion {
   label: string
   tag: string
@@ -84,4 +90,22 @@ export async function deleteContainer(
   target: string
 ): Promise<ContainerActionResult> {
   return invoke<ContainerActionResult>("delete_container", { engine, target })
+}
+
+export async function renameContainer(
+  engine: ContainerEngine,
+  target: string,
+  newName: string
+): Promise<ContainerActionResult> {
+  return invoke<ContainerActionResult>("rename_container", {
+    engine,
+    target,
+    newName,
+  })
+}
+
+export async function recreateDatabase(
+  req: RecreateDatabaseRequest
+): Promise<CreateDatabaseResult> {
+  return invoke<CreateDatabaseResult>("recreate_database", { ...req })
 }

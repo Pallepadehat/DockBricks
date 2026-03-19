@@ -10,6 +10,7 @@ export type Category = {
 export type Database = {
   id: string;
   containerId?: string;
+  engine?: ContainerEngine;
   name: string;
   service: ServiceName;
   version: string;

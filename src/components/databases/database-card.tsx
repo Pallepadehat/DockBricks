@@ -1,4 +1,5 @@
 import {
+  Clock3Icon,
   CopyIcon,
   Loader2Icon,
   PencilIcon,
@@ -23,6 +24,7 @@ type DatabaseCardProps = {
   categories: Category[];
   runtime?: RuntimeState;
   actionBusy: boolean;
+  isCreating: boolean;
   engineRunning: boolean;
   onToggleRunning: () => void;
   onEdit: () => void;
@@ -35,6 +37,7 @@ export function DatabaseCard({
   categories,
   runtime,
   actionBusy,
+  isCreating,
   engineRunning,
   onToggleRunning,
   onEdit,
@@ -51,7 +54,9 @@ export function DatabaseCard({
     Redis: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
   };
 
-  const status = !engineRunning
+  const status = isCreating
+    ? { label: "Creating", className: "text-sky-600" }
+    : !engineRunning
     ? { label: "Engine Offline", className: "text-muted-foreground" }
     : runtime?.loading
       ? { label: "Checking", className: "text-muted-foreground" }
@@ -62,11 +67,11 @@ export function DatabaseCard({
           : { label: "Stopped", className: "text-red-500" };
 
   const disableToggle =
+    isCreating ||
     !engineRunning ||
     actionBusy ||
     runtime?.loading ||
-    runtime?.exists === false ||
-    !runtime;
+    runtime?.exists === false;
 
   const isRunning = runtime?.running ?? false;
 
@@ -95,7 +100,9 @@ export function DatabaseCard({
                 aria-label={isRunning ? "Stop container" : "Start container"}
                 title={isRunning ? "Stop container" : "Start container"}
               >
-                {actionBusy ? (
+                {isCreating ? (
+                  <Clock3Icon className="size-4" />
+                ) : actionBusy ? (
                   <Loader2Icon className="size-4 animate-spin" />
                 ) : isRunning ? (
                   <SquareIcon className="size-4" />
@@ -140,11 +147,15 @@ export function DatabaseCard({
           Copy Connection String
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onSelect={onEdit}>
+        <ContextMenuItem onSelect={onEdit} disabled={isCreating}>
           <PencilIcon className="size-4" />
           Edit Database
         </ContextMenuItem>
-        <ContextMenuItem variant="destructive" onSelect={onDelete}>
+        <ContextMenuItem
+          variant="destructive"
+          onSelect={onDelete}
+          disabled={isCreating}
+        >
           <Trash2Icon className="size-4" />
           Delete Database
         </ContextMenuItem>

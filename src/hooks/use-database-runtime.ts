@@ -91,15 +91,31 @@ export function useDatabaseRuntime(
         return { ok: false, error: `${engineLabel} is not running.` };
       }
 
-      const runtime = runtimeByDbId[db.id];
-      if (!runtime || runtime.loading || !runtime.exists) {
-        return { ok: false, error: "Container was not found for this database.", notFound: true };
+      const target = containerTargetFor(db);
+      const cachedRuntime = runtimeByDbId[db.id];
+      if (cachedRuntime?.loading) {
+        return { ok: false, error: "Container status is still loading. Try again in a moment." };
       }
 
-      const target = containerTargetFor(db);
       setActionBusyByDbId((prev) => ({ ...prev, [db.id]: true }));
 
       try {
+        let runtime = cachedRuntime;
+        if (!runtime || !runtime.exists) {
+          const inspected = await inspectContainer(engine, target);
+          runtime = {
+            exists: inspected.exists,
+            running: inspected.running,
+            loading: false,
+            error: inspected.error,
+          };
+          setRuntimeByDbId((prev) => ({ ...prev, [db.id]: runtime }));
+        }
+
+        if (!runtime.exists) {
+          return { ok: false, error: "Container was not found for this database.", notFound: true };
+        }
+
         const result = runtime.running
           ? await stopContainer(engine, target)
           : await startContainer(engine, target);
