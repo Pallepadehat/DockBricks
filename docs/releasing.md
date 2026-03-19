@@ -44,6 +44,16 @@ Add:
 - `APPLE_PASSWORD`
 - `APPLE_TEAM_ID`
 
+`APPLE_CERTIFICATE` must be the base64-encoded content of a valid Developer ID Application `.p12` certificate export.
+
+Example encoding command:
+
+```bash
+base64 -i certificate.p12 | pbcopy
+```
+
+Use that copied value as the `APPLE_CERTIFICATE` secret.
+
 ## 2) Cut a Release
 
 1. Bump version in:
@@ -68,6 +78,11 @@ This is the primary release path. Artifacts are built on GitHub-hosted runners, 
 - Confirm each target artifact was uploaded (macOS, Linux, Windows).
 - Confirm signature artifacts are present for updater assets.
 - Smoke test one downloaded package before announcing the release.
+
+## macOS User Experience
+
+- Without Apple signing/notarization, macOS users can still run the app but will see Gatekeeper warnings and may need manual allow/open steps.
+- With Apple signing + notarization configured, installs and first launch are much smoother for end users.
 
 ## Local Signed Build (macOS/Linux)
 

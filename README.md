@@ -69,6 +69,7 @@ Signed updater artifacts and platform signing are supported through repository s
 Setup steps are documented in [docs/releasing.md](./docs/releasing.md).
 
 Release builds run in GitHub Actions (macOS, Linux, Windows). You do not need to build releases locally on your Mac to publish.
+For best macOS user experience, configure Apple signing/notarization secrets (see `docs/releasing.md`).
 
 ## Documentation
 
