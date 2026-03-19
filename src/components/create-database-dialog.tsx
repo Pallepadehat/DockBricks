@@ -1,78 +1,96 @@
-import * as React from "react"
+import * as React from "react";
 import {
+  AlertCircleIcon,
   DatabaseIcon,
   EyeIcon,
   EyeOffIcon,
   FolderIcon,
   Loader2Icon,
+  SparklesIcon,
   AlertTriangleIcon,
-} from "lucide-react"
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import type { Category } from "./app-sidebar"
+} from "@/components/ui/select";
+import type { Category } from "./app-sidebar";
+import {
+  fetchServiceVersions,
+  type ServiceVersion,
+} from "@/lib/tauri-commands";
 
 // ── Service definitions ───────────────────────────────────────────────────────
 
 const SERVICES = {
   MariaDB: {
     defaultPort: "3306",
-    versions: ["11.x (Latest)", "10.11 LTS", "10.6 LTS", "10.5"],
+    fallbackVersions: ["12.2", "11.8", "11.4", "10.11", "10.6", "10.5"],
   },
   MySQL: {
     defaultPort: "3306",
-    versions: ["8.4 (Latest)", "8.0 LTS", "5.7"],
+    fallbackVersions: ["9.6", "8.4", "8.0", "5.7"],
   },
   PostgreSQL: {
     defaultPort: "5432",
-    versions: ["17.x (Latest)", "16.x", "15.x", "14.x", "13.x"],
+    fallbackVersions: ["18", "17", "16", "15", "14", "13"],
   },
   Redis: {
     defaultPort: "6379",
-    versions: ["7.x (Latest)", "6.x", "5.x"],
+    fallbackVersions: ["8.6", "8.4", "8.2", "8.0", "7.4", "7.2", "7", "6.2"],
   },
-} as const
+} as const;
 
-type ServiceName = keyof typeof SERVICES
+type ServiceName = keyof typeof SERVICES;
+type VersionState = {
+  options: ServiceVersion[];
+  loading: boolean;
+  error: string | null;
+};
+
+const DEFAULT_VERSION_STATE: VersionState = {
+  options: [],
+  loading: false,
+  error: null,
+};
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
 export type Database = {
-  id: string
-  containerId?: string
-  name: string
-  service: ServiceName
-  version: string
-  port: string
-  password: string
-  categoryIds: string[]
-}
+  id: string;
+  containerId?: string;
+  name: string;
+  service: ServiceName;
+  version: string;
+  port: string;
+  password: string;
+  categoryIds: string[];
+};
 
 type CreateDatabaseDialogProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  categories: Category[]
-  onSave: (db: Omit<Database, "id" | "containerId">) => Promise<void>
-  isCreating?: boolean
-  createError?: string | null
-  dockerRunning?: boolean
-}
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  categories: Category[];
+  existingDatabases: Array<Pick<Database, "service" | "port">>;
+  onSave: (db: Omit<Database, "id" | "containerId">) => Promise<void>;
+  isCreating?: boolean;
+  createError?: string | null;
+  dockerRunning?: boolean;
+};
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -80,34 +98,117 @@ export function CreateDatabaseDialog({
   open,
   onOpenChange,
   categories,
+  existingDatabases,
   onSave,
   isCreating = false,
   createError = null,
   dockerRunning = true,
 }: CreateDatabaseDialogProps) {
-  const [name, setName] = React.useState("")
-  const [service, setService] = React.useState<ServiceName | "">("")
-  const [version, setVersion] = React.useState("")
-  const [port, setPort] = React.useState("")
-  const [password, setPassword] = React.useState("")
-  const [showPassword, setShowPassword] = React.useState(false)
-  const [selectedCategories, setSelectedCategories] = React.useState<string[]>([])
+  const [name, setName] = React.useState("");
+  const [service, setService] = React.useState<ServiceName | "">("");
+  const [version, setVersion] = React.useState("");
+  const [port, setPort] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [selectedCategories, setSelectedCategories] = React.useState<string[]>(
+    [],
+  );
+  const [versionStateByService, setVersionStateByService] = React.useState<
+    Partial<Record<ServiceName, VersionState>>
+  >({});
+
+  const versionRequestId = React.useRef(0);
+
+  const activeVersionState = service
+    ? (versionStateByService[service] ?? DEFAULT_VERSION_STATE)
+    : DEFAULT_VERSION_STATE;
+  const versionOptions = React.useMemo(
+    () =>
+      service ? getVersionOptions(service, activeVersionState.options) : [],
+    [activeVersionState.options, service],
+  );
+
+  async function loadVersionsForService(
+    svc: ServiceName,
+    opts: { force?: boolean; preferLatest?: boolean } = {},
+  ) {
+    const currentState = versionStateByService[svc];
+    if (
+      !opts.force &&
+      (currentState?.loading || currentState?.options.length)
+    ) {
+      if (opts.preferLatest && !version) {
+        const latest = getVersionOptions(svc, currentState.options)[0];
+        if (latest) setVersion(latest.tag);
+      }
+      return;
+    }
+
+    const requestId = ++versionRequestId.current;
+    setVersionStateByService((prev) => ({
+      ...prev,
+      [svc]: {
+        options: prev[svc]?.options ?? [],
+        loading: true,
+        error: null,
+      },
+    }));
+
+    try {
+      const fetched = await fetchServiceVersions(svc);
+      if (versionRequestId.current !== requestId) return;
+
+      const options = getVersionOptions(svc, fetched);
+      setVersionStateByService((prev) => ({
+        ...prev,
+        [svc]: {
+          options,
+          loading: false,
+          error: null,
+        },
+      }));
+
+      if (opts.preferLatest) {
+        setVersion((current) => current || options[0]?.tag || "");
+      }
+    } catch (error) {
+      if (versionRequestId.current !== requestId) return;
+
+      const fallback = getVersionOptions(svc, []);
+      setVersionStateByService((prev) => ({
+        ...prev,
+        [svc]: {
+          options: fallback,
+          loading: false,
+          error:
+            "Couldn’t refresh versions from Docker Hub. Showing built-in options instead.",
+        },
+      }));
+
+      if (opts.preferLatest) {
+        setVersion((current) => current || fallback[0]?.tag || "");
+      }
+
+      console.error(`Failed to fetch versions for ${svc}:`, error);
+    }
+  }
 
   function handleServiceChange(value: string) {
-    const svc = value as ServiceName
-    setService(svc)
-    setVersion("")
-    setPort(SERVICES[svc].defaultPort)
+    const svc = value as ServiceName;
+    setService(svc);
+    setVersion("");
+    setPort(getSuggestedPort(svc, existingDatabases));
+    void loadVersionsForService(svc, { preferLatest: true });
   }
 
   function toggleCategory(id: string) {
     setSelectedCategories((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    )
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
   }
 
   async function handleSave() {
-    if (!name.trim() || !service || !version) return
+    if (!name.trim() || !service || !version) return;
     await onSave({
       name: name.trim(),
       service: service as ServiceName,
@@ -115,28 +216,29 @@ export function CreateDatabaseDialog({
       port,
       password,
       categoryIds: selectedCategories,
-    })
+    });
     // Dialog close and form reset happen in App.tsx on success
   }
 
   function resetForm() {
-    setName("")
-    setService("")
-    setVersion("")
-    setPort("")
-    setPassword("")
-    setShowPassword(false)
-    setSelectedCategories([])
+    setName("");
+    setService("");
+    setVersion("");
+    setPort("");
+    setPassword("");
+    setShowPassword(false);
+    setSelectedCategories([]);
   }
 
-  const canSave = !isCreating && name.trim() && service && version && dockerRunning
+  const canSave =
+    !isCreating && name.trim() && service && version && dockerRunning;
 
   return (
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        if (!o) resetForm()
-        onOpenChange(o)
+        if (!o) resetForm();
+        onOpenChange(o);
       }}
     >
       <DialogContent className="sm:max-w-md">
@@ -151,7 +253,9 @@ export function CreateDatabaseDialog({
         {!dockerRunning && (
           <div className="flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
             <AlertTriangleIcon className="size-3.5 shrink-0" />
-            <span>Docker is not running. Start Docker to create a database.</span>
+            <span>
+              Docker is not running. Start Docker to create a database.
+            </span>
           </div>
         )}
 
@@ -204,20 +308,50 @@ export function CreateDatabaseDialog({
               <Select
                 value={version}
                 onValueChange={setVersion}
-                disabled={!service || isCreating}
+                disabled={!service || isCreating || activeVersionState.loading}
               >
                 <SelectTrigger id="db-version" className="w-full">
-                  <SelectValue placeholder="Select…" />
+                  <SelectValue
+                    placeholder={
+                      !service
+                        ? "Select…"
+                        : activeVersionState.loading
+                          ? "Loading versions…"
+                          : "Select…"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {service &&
-                    SERVICES[service as ServiceName].versions.map((v) => (
-                      <SelectItem key={v} value={v}>
-                        {v}
+                    versionOptions.map((option) => (
+                      <SelectItem key={option.tag} value={option.tag}>
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span>{option.label}</span>
+                        </div>
                       </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
+              {service && (
+                <div className="flex min-h-5 items-center gap-1.5 text-xs text-muted-foreground">
+                  {activeVersionState.loading ? (
+                    <>
+                      <Loader2Icon className="size-3 animate-spin" />
+                      <span>Checking Docker Hub for current versions…</span>
+                    </>
+                  ) : activeVersionState.error ? (
+                    <>
+                      <AlertCircleIcon className="size-3" />
+                      <span>{activeVersionState.error}</span>
+                    </>
+                  ) : versionOptions[0] ? (
+                    <>
+                      <SparklesIcon className="size-3" />
+                      <span>Latest available: {versionOptions[0].label}</span>
+                    </>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
 
@@ -232,6 +366,12 @@ export function CreateDatabaseDialog({
                 onChange={(e) => setPort(e.target.value)}
                 disabled={isCreating}
               />
+              {service && (
+                <p className="text-xs text-muted-foreground">
+                  Host port on your machine. If the default is busy, try another
+                  one like {getSuggestedPort(service as ServiceName, existingDatabases)}.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -303,8 +443,8 @@ export function CreateDatabaseDialog({
           <Button
             variant="outline"
             onClick={() => {
-              resetForm()
-              onOpenChange(false)
+              resetForm();
+              onOpenChange(false);
             }}
             disabled={isCreating}
           >
@@ -323,21 +463,58 @@ export function CreateDatabaseDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Mirror the Rust resolve_image logic for the UI preview */
 function resolveImagePreview(service: ServiceName, version: string): string {
-  const tag = version
-    .split(/\s/)[0]
-    .replace(/\.x$/, "")
+  const tag = version.split(/\s/)[0].replace(/\.x$/, "");
 
   switch (service) {
-    case "MariaDB":    return `mariadb:${tag}`
-    case "MySQL":      return `mysql:${tag}`
-    case "PostgreSQL": return `postgres:${tag}`
-    case "Redis":      return `redis:${tag}`
+    case "MariaDB":
+      return `mariadb:${tag}`;
+    case "MySQL":
+      return `mysql:${tag}`;
+    case "PostgreSQL":
+      return `postgres:${tag}`;
+    case "Redis":
+      return `redis:${tag}`;
   }
+}
+
+function getVersionOptions(
+  service: ServiceName,
+  fetchedOptions: ServiceVersion[],
+): ServiceVersion[] {
+  if (fetchedOptions.length > 0) {
+    return fetchedOptions;
+  }
+
+  return SERVICES[service].fallbackVersions.map((tag, index) => ({
+    label: tag,
+    tag,
+    is_latest: index === 0,
+  }));
+}
+
+function getSuggestedPort(
+  service: ServiceName,
+  existingDatabases: Array<Pick<Database, "service" | "port">>,
+): string {
+  const basePort = Number(SERVICES[service].defaultPort);
+  const usedPorts = new Set(
+    existingDatabases
+      .filter((db) => db.service === service)
+      .map((db) => Number(db.port))
+      .filter((port) => Number.isFinite(port)),
+  );
+
+  let candidate = basePort;
+  while (usedPorts.has(candidate)) {
+    candidate += 1;
+  }
+
+  return String(candidate);
 }

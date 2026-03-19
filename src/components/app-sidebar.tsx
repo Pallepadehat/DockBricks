@@ -2,7 +2,6 @@ import {
   HomeIcon,
   DatabaseIcon,
   PlusIcon,
-  ChevronDownIcon,
   FolderIcon,
 } from "lucide-react";
 
@@ -82,12 +81,11 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-0 px-2 border-t">
+      <SidebarFooter className="p-2 border-t">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-1 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
               <PlusIcon className="size-4" />
-              <ChevronDownIcon className="size-3 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-44">
