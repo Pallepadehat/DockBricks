@@ -16,6 +16,7 @@ import {
   humanizeCreateError,
 } from "@/lib/database-utils";
 import { createDatabase } from "@/lib/tauri-commands";
+import { useAppUpdater } from "@/hooks/use-app-updater";
 import { useDatabaseRuntime } from "@/hooks/use-database-runtime";
 import { useContainerEngineHealth } from "@/hooks/use-container-engine-health";
 import { usePersistentState } from "@/hooks/use-persistent-state";
@@ -59,6 +60,16 @@ export default function App() {
 
   const { engineStatus, engineChecking, showEngineWarning, retryEngineCheck } =
     useContainerEngineHealth(selectedEngine);
+  const {
+    currentVersion,
+    status: updaterStatus,
+    error: updaterError,
+    availableVersion,
+    notes: updateNotes,
+    progressPercent: updateProgressPercent,
+    checkForUpdates,
+    installUpdate,
+  } = useAppUpdater();
 
   const {
     runtimeByDbId,
@@ -328,6 +339,14 @@ export default function App() {
         open={showSettings}
         onOpenChange={setShowSettings}
         currentEngine={selectedEngine}
+        currentVersion={currentVersion}
+        updaterStatus={updaterStatus}
+        updaterError={updaterError}
+        availableVersion={availableVersion}
+        updateNotes={updateNotes}
+        updateProgressPercent={updateProgressPercent}
+        onCheckForUpdates={checkForUpdates}
+        onInstallUpdate={installUpdate}
         onSave={(engine) => {
           setContainerEngine(engine);
         }}

@@ -11,6 +11,8 @@ It supports both Docker and Podman with a clean, native-feeling Tauri UI.
 - Docker and Podman engine support with onboarding + settings switcher
 - Delete flow that removes both local record and container
 - Manual runtime retry flow (no aggressive background polling)
+- Tauri updater plugin configured for GitHub release updates
+- Settings dialog update flow (check, download, install)
 
 ## Tech Stack
 
@@ -65,6 +67,8 @@ GitHub Actions builds all desktop targets on version tags (`v*`) and creates a d
 
 Signed updater artifacts and platform signing are supported through repository secrets.
 Setup steps are documented in [docs/releasing.md](./docs/releasing.md).
+
+Release builds run in GitHub Actions (macOS, Linux, Windows). You do not need to build releases locally on your Mac to publish.
 
 ## Documentation
 

@@ -27,6 +27,12 @@ Add repository secrets:
 - `TAURI_SIGNING_PRIVATE_KEY`: contents of the private key file
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: password used during key generation
 
+DockBricks is configured with updater plugin endpoint:
+
+- `https://github.com/pallepadehat/DockBricks/releases/latest/download/latest.json`
+
+and a fixed updater public key in `src-tauri/tauri.conf.json`.
+
 ### macOS signing / notarization (optional but recommended for distribution)
 
 Add:
@@ -55,8 +61,20 @@ git push origin v0.1.0
 4. Wait for the release workflow to finish.
 5. Open GitHub Releases and publish the generated draft.
 
+This is the primary release path. Artifacts are built on GitHub-hosted runners, not on your local machine.
+
 ## 3) Verify Artifacts
 
 - Confirm each target artifact was uploaded (macOS, Linux, Windows).
 - Confirm signature artifacts are present for updater assets.
 - Smoke test one downloaded package before announcing the release.
+
+## Local Signed Build (macOS/Linux)
+
+Use key content (not file path) in the environment:
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/dockbricks.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+npm run tauri:build
+```
