@@ -4,6 +4,12 @@
 
 DockBricks is currently pre-1.0. Security fixes are applied to the latest release on `main`.
 
+## Local Data
+
+DockBricks stores database configuration locally on the user's machine. This includes database names, ports, categories, selected container engine, and database passwords used for local connection strings and container environment variables.
+
+DockBricks does not use a hosted backend for this data. Anyone with access to your local user account or app storage may be able to read saved database configuration, so treat the device and user profile as trusted.
+
 ## Reporting a Vulnerability
 
 Please do not open public issues for security vulnerabilities.

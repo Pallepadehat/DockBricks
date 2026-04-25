@@ -14,33 +14,6 @@ Release workflow runs on:
 
 ## 1) Configure Signing Secrets
 
-### Tauri updater signing (recommended)
-
-Generate a key pair once:
-
-```bash
-npm run tauri signer generate -w ~/.tauri/dockbricks.key
-```
-
-Add repository secrets:
-
-- `TAURI_SIGNING_PRIVATE_KEY`: either
-  - raw contents of the private key file, or
-  - base64-encoded contents of that key file
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: password used during key generation
-
-If you store the key as base64, use a single line (no wrapped lines):
-
-```bash
-base64 < ~/.tauri/dockbricks.key | tr -d '\n'
-```
-
-DockBricks is configured with updater plugin endpoint:
-
-- `https://github.com/pallepadehat/DockBricks/releases/latest/download/latest.json`
-
-and a fixed updater public key in `src-tauri/tauri.conf.json`.
-
 ### macOS signing / notarization (optional)
 
 Add:
@@ -87,7 +60,18 @@ Get signing identity from your Mac:
 security find-identity -v -p codesigning
 ```
 
-## 2) Cut a Release
+## 2) Validate Locally
+
+Run the same checks CI runs:
+
+```bash
+npm run typecheck
+npm run build
+npm run test:rust
+npm run check:rust
+```
+
+## 3) Cut a Release
 
 1. Bump version in:
    - `package.json`
@@ -106,10 +90,10 @@ git push origin v0.1.0
 
 This is the primary release path. Artifacts are built on GitHub-hosted runners, not on your local machine.
 
-## 3) Verify Artifacts
+## 4) Verify Artifacts
 
 - Confirm each target artifact was uploaded (macOS, Linux, Windows).
-- Confirm signature artifacts are present for updater assets.
+- Confirm package names, versions, and checksums look correct.
 - Smoke test one downloaded package before announcing the release.
 
 ## macOS User Experience
@@ -118,12 +102,10 @@ This is the primary release path. Artifacts are built on GitHub-hosted runners, 
 - With Apple signing + notarization configured, installs and first launch are much smoother for end users.
 - Current workflow is configured to release without Apple notarization so builds stay reliable.
 
-## Local Signed Build (macOS/Linux)
-
-Use key content (not file path) in the environment:
+## Local Build
 
 ```bash
-export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/dockbricks.key)"
-export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
 npm run tauri:build
 ```
+
+Local release builds are useful for smoke testing. Publishing should happen through the GitHub release workflow so each platform is built on its native runner.

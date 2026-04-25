@@ -11,10 +11,11 @@ It supports both Docker and Podman with a clean, native-feeling Tauri UI.
 - Right-click context menu (copy connection string, edit, delete)
 - Start/stop lifecycle control per database
 - Docker and Podman engine support with onboarding + settings switcher
+- Docker/Podman install and runtime checks
+- Host port availability checks before container creation
+- Service icons for quick database identification
 - Delete flow that removes both local record and container
 - Manual runtime retry flow (no aggressive background polling)
-- Tauri updater plugin configured for GitHub release updates
-- Settings dialog update flow (check, download, install)
 
 ## Tech Stack
 
@@ -56,9 +57,17 @@ On first launch, choose Docker or Podman in onboarding.
 ## Validation
 
 ```bash
+npm run typecheck
 npm run build
-cd src-tauri && cargo fmt --all --check && cargo clippy --all-targets && cargo check
+npm run test:rust
+npm run check:rust
 ```
+
+## Local Data And Passwords
+
+DockBricks is a local-first desktop app. Database metadata is stored on your machine, including the database password used to create connection strings and container environment variables. Treat your local user account and app data directory as sensitive.
+
+DockBricks does not send database names, passwords, ports, or connection strings to a hosted backend.
 
 ## Release and Signing
 
@@ -66,9 +75,6 @@ GitHub Actions builds all desktop targets on version tags (`v*`) and creates a d
 
 - CI: [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)
 - Release: [`.github/workflows/release.yml`](./.github/workflows/release.yml)
-
-Signed updater artifacts and platform signing are supported through repository secrets.
-Setup steps are documented in [docs/releasing.md](./docs/releasing.md).
 
 Release builds run in GitHub Actions (macOS, Linux, Windows). You do not need to build releases locally on your Mac to publish.
 For best macOS user experience, configure Apple signing/notarization secrets (see `docs/releasing.md`).
