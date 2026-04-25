@@ -1,7 +1,8 @@
 import { invoke } from "@tauri-apps/api/core"
-import type { ContainerEngine } from "@/types/models"
+import type { ContainerEngine, ServiceName } from "@/types/models"
 
 export interface ContainerEngineStatus {
+  installed: boolean
   running: boolean
   version: string | null
   error: string | null
@@ -10,7 +11,7 @@ export interface ContainerEngineStatus {
 export interface CreateDatabaseRequest {
   engine: ContainerEngine
   name: string
-  service: string
+  service: ServiceName
   version: string
   port: string
   password: string
@@ -46,6 +47,11 @@ export interface ContainerActionResult {
   error: string | null
 }
 
+export interface HostPortStatus {
+  available: boolean
+  error: string | null
+}
+
 export async function checkContainerEngine(
   engine: ContainerEngine
 ): Promise<ContainerEngineStatus> {
@@ -59,9 +65,16 @@ export async function createDatabase(
 }
 
 export async function fetchServiceVersions(
-  service: string
+  service: ServiceName
 ): Promise<ServiceVersion[]> {
   return invoke<ServiceVersion[]>("fetch_service_versions", { service })
+}
+
+export async function checkHostPort(
+  engine: ContainerEngine,
+  port: string
+): Promise<HostPortStatus> {
+  return invoke<HostPortStatus>("check_host_port", { engine, port })
 }
 
 export async function inspectContainer(

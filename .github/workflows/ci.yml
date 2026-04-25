@@ -48,6 +48,10 @@ jobs:
       - name: Frontend build
         run: npm run build
 
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test
+
       - name: Rust format check
         working-directory: src-tauri
         run: cargo fmt --all --check

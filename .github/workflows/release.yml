@@ -61,44 +61,10 @@ jobs:
           echo "macOS builds are smoothest for users when Apple signing/notarization secrets are configured."
           echo "See docs/releasing.md for APPLE_* secret setup."
 
-      - name: Prepare updater signing key
-        shell: bash
-        env:
-          SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-
-          if [[ -z "${SIGNING_KEY:-}" ]]; then
-            echo "TAURI_SIGNING_PRIVATE_KEY secret is missing."
-            exit 1
-          fi
-
-          key_file="${RUNNER_TEMP}/tauri-signing.key"
-          normalized_key="$(printf '%s' "$SIGNING_KEY" | tr -d '\r')"
-
-          # Support both secret formats:
-          # 1) raw key file contents (contains 'untrusted comment')
-          # 2) base64-encoded key file
-          if [[ "$normalized_key" == *"untrusted comment:"* ]]; then
-            printf '%s\n' "$normalized_key" > "$key_file"
-          else
-            decoded_key="$(node -e 'const s = process.argv[1]; try { process.stdout.write(Buffer.from(s, "base64").toString("utf8")); } catch (_) {}' "$normalized_key")"
-            decoded_key="$(printf '%s' "$decoded_key" | tr -d '\r')"
-            if [[ "$decoded_key" != *"untrusted comment:"* ]]; then
-              echo "TAURI_SIGNING_PRIVATE_KEY is neither a raw minisign key nor valid base64-encoded key content."
-              exit 1
-            fi
-            printf '%s\n' "$decoded_key" > "$key_file"
-          fi
-
-          echo "TAURI_SIGNING_PRIVATE_KEY_PATH=$key_file" >> "$GITHUB_ENV"
-
       - name: Build and publish
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ env.TAURI_SIGNING_PRIVATE_KEY_PATH }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: .
           tauriScript: npm run tauri --

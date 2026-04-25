@@ -15,7 +15,7 @@ export type RuntimeState = {
   error: string | null;
 };
 
-type RuntimeActionResult =
+export type RuntimeActionResult =
   | { ok: true }
   | { ok: false; error: string; notFound?: boolean };
 
@@ -27,9 +27,14 @@ export function useDatabaseRuntime(
   const engineLabel = engine === "docker" ? "Docker" : "Podman";
   const [runtimeByDbId, setRuntimeByDbId] = React.useState<Record<string, RuntimeState>>({});
   const [actionBusyByDbId, setActionBusyByDbId] = React.useState<Record<string, boolean>>({});
+  const trackedRuntimeKeys = React.useRef<Record<string, string>>({});
+  const refreshRequestIds = React.useRef<Record<string, number>>({});
 
   const refreshContainerState = React.useCallback(
     async (db: Database) => {
+      const requestId = (refreshRequestIds.current[db.id] ?? 0) + 1;
+      refreshRequestIds.current[db.id] = requestId;
+
       if (!engineRunning) {
         setRuntimeByDbId((prev) => {
           const next = { ...prev };
@@ -51,6 +56,8 @@ export function useDatabaseRuntime(
 
       try {
         const status = await inspectContainer(engine, containerTargetFor(db));
+        if (refreshRequestIds.current[db.id] !== requestId) return;
+
         setRuntimeByDbId((prev) => ({
           ...prev,
           [db.id]: {
@@ -61,6 +68,8 @@ export function useDatabaseRuntime(
           },
         }));
       } catch (error) {
+        if (refreshRequestIds.current[db.id] !== requestId) return;
+
         setRuntimeByDbId((prev) => ({
           ...prev,
           [db.id]: {
@@ -77,13 +86,41 @@ export function useDatabaseRuntime(
 
   React.useEffect(() => {
     if (!engineRunning || databases.length === 0) {
+      trackedRuntimeKeys.current = {};
       setRuntimeByDbId({});
       return;
     }
 
-    void Promise.all(databases.map((db) => refreshContainerState(db)));
+    const nextRuntimeKeys = databases.reduce<Record<string, string>>((acc, db) => {
+      const effectiveEngine = db.engine ?? engine;
+      acc[db.id] = `${effectiveEngine}:${containerTargetFor(db)}`;
+      return acc;
+    }, {});
+
+    const previousRuntimeKeys = trackedRuntimeKeys.current;
+    const removedIds = Object.keys(previousRuntimeKeys).filter(
+      (databaseId) => !nextRuntimeKeys[databaseId],
+    );
+    if (removedIds.length > 0) {
+      setRuntimeByDbId((prev) => {
+        const next = { ...prev };
+        for (const databaseId of removedIds) {
+          delete next[databaseId];
+          refreshRequestIds.current[databaseId] =
+            (refreshRequestIds.current[databaseId] ?? 0) + 1;
+        }
+        return next;
+      });
+    }
+
+    const databasesToRefresh = databases.filter(
+      (db) => previousRuntimeKeys[db.id] !== nextRuntimeKeys[db.id],
+    );
+
+    trackedRuntimeKeys.current = nextRuntimeKeys;
+    void Promise.all(databasesToRefresh.map((db) => refreshContainerState(db)));
     return undefined;
-  }, [databases, engineRunning, refreshContainerState]);
+  }, [databases, engine, engineRunning, refreshContainerState]);
 
   const toggleContainerState = React.useCallback(
     async (db: Database): Promise<RuntimeActionResult> => {
@@ -156,6 +193,10 @@ export function useDatabaseRuntime(
   );
 
   const clearRuntimeForDatabase = React.useCallback((databaseId: string) => {
+    delete trackedRuntimeKeys.current[databaseId];
+    refreshRequestIds.current[databaseId] =
+      (refreshRequestIds.current[databaseId] ?? 0) + 1;
+
     setRuntimeByDbId((prev) => {
       const next = { ...prev };
       delete next[databaseId];

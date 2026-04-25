@@ -14,7 +14,7 @@ export function useContainerEngineHealth(engine: ContainerEngine) {
       setEngineStatus(status);
       if (status.running) setEngineBannerDismissed(false);
     } catch (error) {
-      setEngineStatus({ running: false, version: null, error: String(error) });
+      setEngineStatus({ installed: false, running: false, version: null, error: String(error) });
     } finally {
       setEngineChecking(false);
     }

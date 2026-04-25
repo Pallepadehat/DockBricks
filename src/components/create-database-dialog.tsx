@@ -6,7 +6,6 @@ import {
   EyeOffIcon,
   FolderIcon,
   Loader2Icon,
-  SparklesIcon,
   AlertTriangleIcon,
 } from "lucide-react";
 
@@ -28,8 +27,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Category, Database, ServiceName } from "@/types/models";
+import type { Category, ContainerEngine, Database, ServiceName } from "@/types/models";
 import {
+  checkHostPort,
   fetchServiceVersions,
   type ServiceVersion,
 } from "@/lib/tauri-commands";
@@ -61,10 +61,20 @@ type VersionState = {
   error: string | null;
 };
 
+type PortState = {
+  status: "idle" | "checking" | "available" | "unavailable" | "invalid";
+  message: string | null;
+};
+
 const DEFAULT_VERSION_STATE: VersionState = {
   options: [],
   loading: false,
   error: null,
+};
+
+const DEFAULT_PORT_STATE: PortState = {
+  status: "idle",
+  message: null,
 };
 
 type CreateDatabaseDialogProps = {
@@ -72,13 +82,13 @@ type CreateDatabaseDialogProps = {
   onOpenChange: (open: boolean) => void;
   categories: Category[];
   existingDatabases: Array<Pick<Database, "service" | "port">>;
+  defaultEngine: ContainerEngine;
   onSave: (db: Omit<Database, "id" | "containerId">) => Promise<void>;
   mode?: "create" | "edit";
   initialDatabase?: Omit<Database, "id" | "containerId"> | null;
   isCreating?: boolean;
   createError?: string | null;
   engineRunning?: boolean;
-  engineLabel?: string;
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -88,13 +98,13 @@ export function CreateDatabaseDialog({
   onOpenChange,
   categories,
   existingDatabases,
+  defaultEngine,
   onSave,
   mode = "create",
   initialDatabase = null,
   isCreating = false,
   createError = null,
   engineRunning = true,
-  engineLabel = "Docker",
 }: CreateDatabaseDialogProps) {
   const [name, setName] = React.useState("");
   const [service, setService] = React.useState<ServiceName | "">("");
@@ -108,8 +118,10 @@ export function CreateDatabaseDialog({
   const [versionStateByService, setVersionStateByService] = React.useState<
     Partial<Record<ServiceName, VersionState>>
   >({});
+  const [portState, setPortState] = React.useState<PortState>(DEFAULT_PORT_STATE);
 
   const versionRequestId = React.useRef(0);
+  const portRequestId = React.useRef(0);
   const wasOpen = React.useRef(false);
 
   const activeVersionState = service
@@ -120,6 +132,7 @@ export function CreateDatabaseDialog({
       service ? getVersionOptions(service, activeVersionState.options) : [],
     [activeVersionState.options, service],
   );
+  const engineLabel = defaultEngine === "docker" ? "Docker" : "Podman";
 
   async function loadVersionsForService(
     svc: ServiceName,
@@ -202,6 +215,9 @@ export function CreateDatabaseDialog({
 
   async function handleSave() {
     if (!name.trim() || !service || !version) return;
+    if (portState.status === "checking") return;
+    if (portState.status === "unavailable" || portState.status === "invalid") return;
+
     await onSave({
       name: name.trim(),
       service: service as ServiceName,
@@ -209,6 +225,7 @@ export function CreateDatabaseDialog({
       port,
       password,
       categoryIds: selectedCategories,
+      engine: defaultEngine,
     });
     // Dialog close and form reset happen in App.tsx on success
   }
@@ -221,6 +238,7 @@ export function CreateDatabaseDialog({
     setPassword("");
     setShowPassword(false);
     setSelectedCategories([]);
+    setPortState(DEFAULT_PORT_STATE);
   }
 
   React.useEffect(() => {
@@ -239,10 +257,73 @@ export function CreateDatabaseDialog({
       }
     }
     wasOpen.current = open;
-  }, [initialDatabase, mode, open]);
+  }, [defaultEngine, initialDatabase, mode, open]);
+
+  React.useEffect(() => {
+    if (!open || !port.trim()) {
+      setPortState(DEFAULT_PORT_STATE);
+      return;
+    }
+
+    if (mode === "edit" && initialDatabase?.port === port.trim()) {
+      setPortState(DEFAULT_PORT_STATE);
+      return;
+    }
+
+    if (!/^\d+$/.test(port.trim())) {
+      setPortState({
+        status: "invalid",
+        message: "Use a numeric port.",
+      });
+      return;
+    }
+
+    const requestId = ++portRequestId.current;
+    setPortState({
+      status: "checking",
+      message: "Checking port...",
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const status = await checkHostPort(defaultEngine, port.trim());
+          if (portRequestId.current !== requestId) return;
+
+          if (status.available) {
+            setPortState({
+              status: "available",
+              message: null,
+            });
+          } else {
+            const nextPort = getNextPortCandidate(port.trim(), existingDatabases);
+            setPortState({
+              status: "unavailable",
+              message: `${status.error ?? `Port ${port.trim()} is in use.`} Try ${nextPort}.`,
+            });
+          }
+        } catch (error) {
+          if (portRequestId.current !== requestId) return;
+          setPortState({
+            status: "invalid",
+            message: String(error),
+          });
+        }
+      })();
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [defaultEngine, existingDatabases, initialDatabase?.port, mode, open, port]);
 
   const canSave =
-    !isCreating && name.trim() && service && version && engineRunning;
+    !isCreating &&
+    name.trim() &&
+    service &&
+    version &&
+    engineRunning &&
+    portState.status !== "checking" &&
+    portState.status !== "unavailable" &&
+    portState.status !== "invalid";
 
   return (
     <Dialog
@@ -252,7 +333,7 @@ export function CreateDatabaseDialog({
         onOpenChange(o);
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md gap-5">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <DatabaseIcon className="size-4 text-muted-foreground" />
@@ -262,7 +343,6 @@ export function CreateDatabaseDialog({
           </div>
         </DialogHeader>
 
-        {/* Docker not running warning */}
         {!engineRunning && (
           <div className="flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
             <AlertTriangleIcon className="size-3.5 shrink-0" />
@@ -273,7 +353,6 @@ export function CreateDatabaseDialog({
           </div>
         )}
 
-        {/* Error from the last save attempt */}
         {createError && (
           <div className="flex flex-col gap-0.5 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
             <span className="font-medium">
@@ -285,8 +364,7 @@ export function CreateDatabaseDialog({
           </div>
         )}
 
-        <div className="flex flex-col gap-4">
-          {/* Name */}
+        <div className="flex flex-col gap-3.5">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="db-name">Name</Label>
             <Input
@@ -299,7 +377,6 @@ export function CreateDatabaseDialog({
             />
           </div>
 
-          {/* Service + Version */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="db-service">Service</Label>
@@ -320,9 +397,7 @@ export function CreateDatabaseDialog({
                 </SelectContent>
               </Select>
               {mode === "edit" && (
-                <p className="text-xs text-muted-foreground">
-                  Service cannot be changed after creation.
-                </p>
+                <p className="text-xs text-muted-foreground">Locked.</p>
               )}
             </div>
 
@@ -355,30 +430,15 @@ export function CreateDatabaseDialog({
                     ))}
                 </SelectContent>
               </Select>
-              {service && (
+              {service && activeVersionState.error && (
                 <div className="flex min-h-5 items-center gap-1.5 text-xs text-muted-foreground">
-                  {activeVersionState.loading ? (
-                    <>
-                      <Loader2Icon className="size-3 animate-spin" />
-                      <span>Checking Docker Hub for current versions…</span>
-                    </>
-                  ) : activeVersionState.error ? (
-                    <>
-                      <AlertCircleIcon className="size-3" />
-                      <span>{activeVersionState.error}</span>
-                    </>
-                  ) : versionOptions[0] ? (
-                    <>
-                      <SparklesIcon className="size-3" />
-                      <span>Latest available: {versionOptions[0].label}</span>
-                    </>
-                  ) : null}
+                  <AlertCircleIcon className="size-3" />
+                  <span>Using built-in versions.</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Port + Password */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="db-port">Port</Label>
@@ -388,12 +448,22 @@ export function CreateDatabaseDialog({
                 value={port}
                 onChange={(e) => setPort(e.target.value)}
                 disabled={isCreating}
+                aria-invalid={
+                  portState.status === "unavailable" || portState.status === "invalid"
+                }
               />
-              {service && (
-                <p className="text-xs text-muted-foreground">
-                  Host port on your machine. If the default is busy, try another
-                  one like {getSuggestedPort(service as ServiceName, existingDatabases)}.
+              {portState.status === "checking" && (
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2Icon className="size-3 animate-spin" />
+                  Checking port
                 </p>
+              )}
+              {(portState.status === "unavailable" || portState.status === "invalid") &&
+                portState.message && (
+                  <p className="text-xs text-destructive">{portState.message}</p>
+                )}
+              {portState.status === "available" && (
+                <p className="text-xs text-emerald-600">Port is free.</p>
               )}
             </div>
 
@@ -426,17 +496,6 @@ export function CreateDatabaseDialog({
             </div>
           </div>
 
-          {/* Docker image preview */}
-          {service && version && (
-            <div className="flex items-center gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground font-mono">
-              <DatabaseIcon className="size-3.5 shrink-0" />
-              <span className="truncate">
-                {resolveImagePreview(service as ServiceName, version)}
-              </span>
-            </div>
-          )}
-
-          {/* Categories */}
           {categories.length > 0 && (
             <div className="flex flex-col gap-2">
               <Label>Categories</Label>
@@ -491,22 +550,6 @@ export function CreateDatabaseDialog({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Mirror the Rust resolve_image logic for the UI preview */
-function resolveImagePreview(service: ServiceName, version: string): string {
-  const tag = version.split(/\s/)[0].replace(/\.x$/, "");
-
-  switch (service) {
-    case "MariaDB":
-      return `mariadb:${tag}`;
-    case "MySQL":
-      return `mysql:${tag}`;
-    case "PostgreSQL":
-      return `postgres:${tag}`;
-    case "Redis":
-      return `redis:${tag}`;
-  }
-}
-
 function getVersionOptions(
   service: ServiceName,
   fetchedOptions: ServiceVersion[],
@@ -540,4 +583,23 @@ function getSuggestedPort(
   }
 
   return String(candidate);
+}
+
+function getNextPortCandidate(
+  port: string,
+  existingDatabases: Array<Pick<Database, "port">>,
+): string {
+  const numericPort = Number(port);
+  const usedPorts = new Set(
+    existingDatabases
+      .map((db) => Number(db.port))
+      .filter((existingPort) => Number.isFinite(existingPort)),
+  );
+
+  let candidate = Number.isFinite(numericPort) ? numericPort + 1 : 5433;
+  while (candidate <= 65535 && usedPorts.has(candidate)) {
+    candidate += 1;
+  }
+
+  return String(candidate <= 65535 ? candidate : 5433);
 }

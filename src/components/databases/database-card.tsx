@@ -1,3 +1,4 @@
+import * as React from "react";
 import {
   Clock3Icon,
   CopyIcon,
@@ -16,25 +17,32 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Button } from "@/components/ui/button";
-import type { Category, Database } from "@/types/models";
+import type { Database, ServiceName } from "@/types/models";
 import type { RuntimeState } from "@/hooks/use-database-runtime";
 
 type DatabaseCardProps = {
   db: Database;
-  categories: Category[];
+  categoryNames: string[];
   runtime?: RuntimeState;
   actionBusy: boolean;
   isCreating: boolean;
   engineRunning: boolean;
-  onToggleRunning: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onCopyConnectionString: () => void;
+  onToggleRunning: (databaseId: string) => void;
+  onEdit: (databaseId: string) => void;
+  onDelete: (databaseId: string) => void;
+  onCopyConnectionString: (databaseId: string) => void;
 };
 
-export function DatabaseCard({
+const SERVICE_COLOR: Record<ServiceName, string> = {
+  MariaDB: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+  MySQL: "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
+  PostgreSQL: "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+  Redis: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
+};
+
+export const DatabaseCard = React.memo(function DatabaseCard({
   db,
-  categories,
+  categoryNames,
   runtime,
   actionBusy,
   isCreating,
@@ -44,16 +52,6 @@ export function DatabaseCard({
   onDelete,
   onCopyConnectionString,
 }: DatabaseCardProps) {
-  const dbCategories = categories.filter((c) => db.categoryIds.includes(c.id));
-
-  const serviceColor: Record<string, string> = {
-    MariaDB: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
-    MySQL:
-      "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
-    PostgreSQL: "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
-    Redis: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
-  };
-
   const status = isCreating
     ? { label: "Creating", className: "text-sky-600" }
     : !engineRunning
@@ -94,7 +92,7 @@ export function DatabaseCard({
                 size="icon-sm"
                 onClick={(event) => {
                   event.stopPropagation();
-                  onToggleRunning();
+                  onToggleRunning(db.id);
                 }}
                 disabled={disableToggle}
                 aria-label={isRunning ? "Stop container" : "Start container"}
@@ -116,7 +114,7 @@ export function DatabaseCard({
           <div className="flex items-center gap-1">
             <span
               className={`rounded-md px-2 py-0.5 text-xs font-medium ${
-                serviceColor[db.service] ?? "bg-muted text-muted-foreground"
+                SERVICE_COLOR[db.service] ?? "bg-muted text-muted-foreground"
               }`}
             >
               {db.service} {db.version}
@@ -126,14 +124,14 @@ export function DatabaseCard({
             </span>
           </div>
 
-          {dbCategories.length > 0 && (
+          {categoryNames.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1.5">
-              {dbCategories.map((cat) => (
+              {categoryNames.map((categoryName) => (
                 <span
-                  key={cat.id}
+                  key={categoryName}
                   className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground"
                 >
-                  {cat.name}
+                  {categoryName}
                 </span>
               ))}
             </div>
@@ -142,18 +140,18 @@ export function DatabaseCard({
       </ContextMenuTrigger>
 
       <ContextMenuContent className="w-56">
-        <ContextMenuItem onSelect={onCopyConnectionString}>
+        <ContextMenuItem onSelect={() => onCopyConnectionString(db.id)}>
           <CopyIcon className="size-4" />
           Copy Connection String
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onSelect={onEdit} disabled={isCreating}>
+        <ContextMenuItem onSelect={() => onEdit(db.id)} disabled={isCreating}>
           <PencilIcon className="size-4" />
           Edit Database
         </ContextMenuItem>
         <ContextMenuItem
           variant="destructive"
-          onSelect={onDelete}
+          onSelect={() => onDelete(db.id)}
           disabled={isCreating}
         >
           <Trash2Icon className="size-4" />
@@ -162,4 +160,4 @@ export function DatabaseCard({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+});
