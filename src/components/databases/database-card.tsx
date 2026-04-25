@@ -17,6 +17,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Button } from "@/components/ui/button";
+import { ServiceIcon } from "@/components/databases/service-icon";
 import type { Database, ServiceName } from "@/types/models";
 import type { RuntimeState } from "@/hooks/use-database-runtime";
 
@@ -113,10 +114,11 @@ export const DatabaseCard = React.memo(function DatabaseCard({
 
           <div className="flex items-center gap-1">
             <span
-              className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ${
                 SERVICE_COLOR[db.service] ?? "bg-muted text-muted-foreground"
               }`}
             >
+              <ServiceIcon service={db.service} className="size-3.5" />
               {db.service} {db.version}
             </span>
             <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">

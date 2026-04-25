@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ServiceIcon } from "@/components/databases/service-icon";
 import {
   Select,
   SelectContent,
@@ -391,7 +392,10 @@ export function CreateDatabaseDialog({
                 <SelectContent>
                   {Object.keys(SERVICES).map((svc) => (
                     <SelectItem key={svc} value={svc}>
-                      {svc}
+                      <span className="flex items-center gap-2">
+                        <ServiceIcon service={svc as ServiceName} className="size-4" />
+                        {svc}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
