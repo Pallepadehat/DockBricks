@@ -101,7 +101,7 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         with:
           projectPath: .
-          tauriScript: npm run tauri --
+          tauriScript: npm run tauri
           tagName: __VERSION__
           releaseName: "DockBricks __VERSION__"
           releaseBody: "See the assets below to download this version."
