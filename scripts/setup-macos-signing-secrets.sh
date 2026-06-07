@@ -53,8 +53,11 @@ if [[ -z "$SIGNING_IDENTITY" ]]; then
   exit 1
 fi
 
+DEFAULT_TEAM_ID="$(printf '%s' "$SIGNING_IDENTITY" | sed -n 's/.*(\([A-Z0-9][A-Z0-9]*\)).*/\1/p')"
 read -r -p "APPLE_API_ISSUER: " APPLE_API_ISSUER
 read -r -p "APPLE_API_KEY: " APPLE_API_KEY
+read -r -p "APPLE_TEAM_ID [$DEFAULT_TEAM_ID]: " APPLE_TEAM_ID
+APPLE_TEAM_ID="${APPLE_TEAM_ID:-$DEFAULT_TEAM_ID}"
 read -r -s -p "KEYCHAIN_PASSWORD for CI temporary keychain: " KEYCHAIN_PASSWORD
 echo
 
@@ -66,6 +69,7 @@ printf '%s' "$P12_PASSWORD" | gh secret set APPLE_CERTIFICATE_PASSWORD
 printf '%s' "$SIGNING_IDENTITY" | gh secret set APPLE_SIGNING_IDENTITY
 printf '%s' "$APPLE_API_ISSUER" | gh secret set APPLE_API_ISSUER
 printf '%s' "$APPLE_API_KEY" | gh secret set APPLE_API_KEY
+printf '%s' "$APPLE_TEAM_ID" | gh secret set APPLE_TEAM_ID
 printf '%s' "$KEYCHAIN_PASSWORD" | gh secret set KEYCHAIN_PASSWORD
 
 if [[ -n "$P8_PATH" ]]; then
