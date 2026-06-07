@@ -23,6 +23,7 @@ Required for Developer ID signing:
 - `APPLE_CERTIFICATE`: base64-encoded Developer ID Application `.p12` export
 - `APPLE_CERTIFICATE_PASSWORD`: the `.p12` export password
 - `APPLE_SIGNING_IDENTITY`: exact identity string, e.g. `Developer ID Application: Your Name (TEAMID)`
+- `KEYCHAIN_PASSWORD`: arbitrary temporary CI keychain password used by the macOS runner
 
 Required for notarization, choose one credential style:
 
