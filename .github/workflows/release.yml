@@ -16,7 +16,6 @@ concurrency:
 jobs:
   publish-tauri:
     runs-on: macos-latest
-    environment: APPLE_CERTIFICATE
 
     env:
       RELEASE_ARGS: "--bundles dmg,app"
