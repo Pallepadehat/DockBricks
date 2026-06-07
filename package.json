@@ -1,6 +1,6 @@
 {
   "name": "dockbricks",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Desktop app for managing local Docker/Podman databases",
   "license": "MIT",
   "repository": {

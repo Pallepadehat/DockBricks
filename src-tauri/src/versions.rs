@@ -23,7 +23,7 @@ pub async fn fetch_service_versions_from_docker_hub(
     let service = parse_service(service_name)?;
     let numeric_tag_pattern = Regex::new(r"^\d+(?:\.\d+){0,2}$").map_err(|e| e.to_string())?;
     let client = Client::builder()
-        .user_agent("dockbricks/0.1.1")
+        .user_agent("dockbricks/0.1.2")
         .build()
         .map_err(|e| e.to_string())?;
 

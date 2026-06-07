@@ -109,10 +109,6 @@ export default function App() {
     clearRuntimeForDatabase,
   });
 
-  if (!containerEngine) {
-    return <EngineOnboarding onSelectEngine={setContainerEngine} />;
-  }
-
   const editingDatabase =
     editingDatabaseId === null
       ? null
@@ -131,6 +127,10 @@ export default function App() {
     },
     [handleCopyConnectionString],
   );
+
+  if (!containerEngine) {
+    return <EngineOnboarding onSelectEngine={setContainerEngine} />;
+  }
 
   function handleCreateCategory(name: string) {
     const newCategory: Category = { id: crypto.randomUUID(), name };
