@@ -24,18 +24,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: npm install
-
       - name: Configure App Store Connect API key
         env:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
@@ -46,22 +34,20 @@ jobs:
             echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/apple-notarization/AuthKey.p8" >> "$GITHUB_ENV"
           fi
 
-      - name: Verify macOS signing configuration
+      - name: Verify macOS signing and notarization secrets
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          if [ -z "$APPLE_CERTIFICATE" ]; then
-            echo "::warning::APPLE_CERTIFICATE is not configured; macOS artifacts will not be Developer ID signed/notarized."
-            exit 0
-          fi
-
           missing=0
-          for name in APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY KEYCHAIN_PASSWORD; do
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY KEYCHAIN_PASSWORD APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_P8; do
             if [ -z "${!name}" ]; then
-              echo "::error::$name is required when APPLE_CERTIFICATE is configured."
+              echo "::error::$name is required for signed and notarized macOS releases."
               missing=1
             fi
           done
@@ -76,9 +62,44 @@ jobs:
           fi
 
           if ! openssl pkcs12 -in "$cert_path" -noout -passin "pass:$APPLE_CERTIFICATE_PASSWORD" >/dev/null 2>&1; then
-            echo "::error::APPLE_CERTIFICATE could not be opened with APPLE_CERTIFICATE_PASSWORD. Re-export the Developer ID Application certificate as .p12 and update both secrets."
+            echo "::error::APPLE_CERTIFICATE could not be opened with APPLE_CERTIFICATE_PASSWORD. Re-export the Developer ID Application certificate as .p12 and update both secrets together."
             exit 1
           fi
+
+          cert_summary="$(openssl pkcs12 -in "$cert_path" -nokeys -passin "pass:$APPLE_CERTIFICATE_PASSWORD" 2>/dev/null | openssl x509 -noout -subject 2>/dev/null || true)"
+          if ! printf '%s' "$cert_summary" | grep -q "Developer ID Application"; then
+            echo "::error::APPLE_CERTIFICATE is not a Developer ID Application certificate."
+            exit 1
+          fi
+
+          if ! printf '%s' "$APPLE_API_KEY_P8" | grep -q "BEGIN PRIVATE KEY"; then
+            echo "::error::APPLE_API_KEY_P8 must contain the full AuthKey_XXXXXXXXXX.p8 private key, including BEGIN/END PRIVATE KEY lines."
+            exit 1
+          fi
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" verify-signing.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" verify-signing.keychain
+          security import "$cert_path" -k verify-signing.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" verify-signing.keychain
+          if ! security find-identity -v -p codesigning verify-signing.keychain | grep -Fq "$APPLE_SIGNING_IDENTITY"; then
+            echo "::error::APPLE_SIGNING_IDENTITY was not found after importing APPLE_CERTIFICATE."
+            exit 1
+          fi
+          security delete-keychain verify-signing.keychain
+
+          echo "macOS signing and notarization secrets verified before installing dependencies."
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm install
 
       - name: Build and publish
         uses: tauri-apps/tauri-action@v0
