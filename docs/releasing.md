@@ -14,23 +14,35 @@ Release workflow runs on:
 
 ## 1) Configure Signing Secrets
 
-### macOS signing / notarization (optional)
+### macOS signing / notarization
 
-Add:
+The release workflow passes Apple signing/notarization secrets through to Tauri on the macOS runner.
 
-- `APPLE_CERTIFICATE`
-- `APPLE_CERTIFICATE_PASSWORD`
-- `APPLE_SIGNING_IDENTITY`
-- `APPLE_ID`
-- `APPLE_PASSWORD`
-- `APPLE_TEAM_ID`
+Required for Developer ID signing:
 
-`APPLE_CERTIFICATE` must be the base64-encoded content of a valid Developer ID Application `.p12` certificate export.
+- `APPLE_CERTIFICATE`: base64-encoded Developer ID Application `.p12` export
+- `APPLE_CERTIFICATE_PASSWORD`: the `.p12` export password
+- `APPLE_SIGNING_IDENTITY`: exact identity string, e.g. `Developer ID Application: Your Name (TEAMID)`
 
-Example encoding command:
+Required for notarization, choose one credential style:
+
+**App Store Connect API key (recommended)**
+
+- `APPLE_API_ISSUER`: Issuer ID from App Store Connect > Users and Access > Integrations
+- `APPLE_API_KEY`: Key ID
+- `APPLE_API_KEY_P8`: contents of the downloaded private key file (`AuthKey_XXXXXXXXXX.p8`)
+
+**Apple ID app-specific password**
+
+- `APPLE_ID`: your Apple ID email
+- `APPLE_PASSWORD`: Apple app-specific password, not your normal Apple ID password
+- `APPLE_TEAM_ID`: your Apple Team ID
+
+`APPLE_CERTIFICATE` must be the base64-encoded content of a valid Developer ID Application `.p12` certificate export:
 
 ```bash
-base64 -i certificate.p12 | pbcopy
+openssl base64 -A -in dockbricks-dev-id.p12 -out certificate-base64.txt
+pbcopy < certificate-base64.txt
 ```
 
 Use that copied value as the `APPLE_CERTIFICATE` secret.
@@ -40,19 +52,8 @@ Use that copied value as the `APPLE_CERTIFICATE` secret.
 1. Create a Developer ID Application certificate in Apple Developer portal.
 2. Download and install it in Keychain Access.
 3. Export that certificate from Keychain as `.p12` with a password.
-4. Base64 encode the `.p12` and save as GitHub secret:
-
-```bash
-base64 -i dockbricks-dev-id.p12 | pbcopy
-```
-
-5. Add these repository secrets:
-   - `APPLE_CERTIFICATE`: base64 output above
-   - `APPLE_CERTIFICATE_PASSWORD`: the `.p12` export password
-   - `APPLE_SIGNING_IDENTITY`: exact identity string, e.g. `Developer ID Application: Your Name (TEAMID)`
-   - `APPLE_ID`: your Apple ID email
-   - `APPLE_PASSWORD`: Apple app-specific password (not your normal Apple ID password)
-   - `APPLE_TEAM_ID`: your Apple Team ID
+4. Base64 encode the `.p12` with the command above.
+5. Add the GitHub Actions secrets listed above.
 
 Get signing identity from your Mac:
 
@@ -100,7 +101,7 @@ This is the primary release path. Artifacts are built on GitHub-hosted runners, 
 
 - Without Apple signing/notarization, macOS users can still run the app but will see Gatekeeper warnings and may need manual allow/open steps.
 - With Apple signing + notarization configured, installs and first launch are much smoother for end users.
-- Current workflow is configured to release without Apple notarization so builds stay reliable.
+- The release workflow signs and notarizes macOS artifacts when the Apple secrets above are configured. If `APPLE_CERTIFICATE` is missing, it emits a warning and builds unsigned macOS artifacts.
 
 ## Local Build
 
