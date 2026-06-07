@@ -23,9 +23,29 @@ read -r -s -p "Password for $P12_PATH: " P12_PASSWORD
 echo
 
 if ! openssl pkcs12 -in "$P12_PATH" -noout -passin "pass:$P12_PASSWORD" >/dev/null 2>&1; then
-  echo "The .p12 could not be opened with that password. Nothing was uploaded." >&2
+  if ! openssl pkcs12 -legacy -in "$P12_PATH" -noout -passin "pass:$P12_PASSWORD" >/dev/null 2>&1; then
+    echo "The .p12 could not be opened with that password. Nothing was uploaded." >&2
+    exit 1
+  fi
+fi
+
+TEST_KEYCHAIN="dockbricks-signing-verify-$$.keychain"
+TEST_KEYCHAIN_PASSWORD="dockbricks-local-verify-$$"
+cleanup_test_keychain() {
+  security delete-keychain "$TEST_KEYCHAIN" >/dev/null 2>&1 || true
+}
+trap cleanup_test_keychain EXIT
+
+security create-keychain -p "$TEST_KEYCHAIN_PASSWORD" "$TEST_KEYCHAIN" >/dev/null
+security unlock-keychain -p "$TEST_KEYCHAIN_PASSWORD" "$TEST_KEYCHAIN" >/dev/null
+if ! security import "$P12_PATH" -k "$TEST_KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign >/dev/null 2>&1; then
+  echo "macOS security could not import this .p12 with that password. Nothing was uploaded." >&2
+  echo "Try re-exporting the .p12 from Keychain Access, or create a macOS-compatible .p12 with:" >&2
+  echo "openssl pkcs12 -export -legacy -in your-cert.pem -out dockbricks-final.p12 -name 'Developer ID Application: Patrick Jakobsen (537P4FPMZ4)'" >&2
   exit 1
 fi
+cleanup_test_keychain
+trap - EXIT
 
 SIGNING_IDENTITY="$(security find-identity -v -p codesigning | awk -F'"' '/Developer ID Application/ { print $2; exit }')"
 if [[ -z "$SIGNING_IDENTITY" ]]; then
