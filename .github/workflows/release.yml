@@ -64,7 +64,20 @@ jobs:
               missing=1
             fi
           done
-          exit "$missing"
+          if [ "$missing" -ne 0 ]; then
+            exit "$missing"
+          fi
+
+          cert_path="$RUNNER_TEMP/apple-certificate.p12"
+          if ! printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$cert_path" 2>/dev/null; then
+            echo "::error::APPLE_CERTIFICATE must be the base64-encoded contents of an exported .p12 certificate. Do not include quotes or the file path."
+            exit 1
+          fi
+
+          if ! openssl pkcs12 -in "$cert_path" -noout -passin "pass:$APPLE_CERTIFICATE_PASSWORD" >/dev/null 2>&1; then
+            echo "::error::APPLE_CERTIFICATE could not be opened with APPLE_CERTIFICATE_PASSWORD. Re-export the Developer ID Application certificate as .p12 and update both secrets."
+            exit 1
+          fi
 
       - name: Build and publish
         uses: tauri-apps/tauri-action@v0
