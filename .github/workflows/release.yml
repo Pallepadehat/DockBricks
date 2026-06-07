@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   publish-tauri:
-    runs-on: macos-latest
+    runs-on: blacksmith-6vcpu-macos-15
 
     env:
       RELEASE_ARGS: "--bundles dmg,app"
