@@ -105,7 +105,7 @@ export function AppSidebar({
           <button
             type="button"
             onClick={onOpenSettings}
-            className="group mb-1 rounded-xl border border-primary/20 bg-primary/10 p-2 text-left shadow-sm transition-all hover:bg-primary/15"
+            className="group mb-1 w-full rounded-xl border border-primary/20 bg-primary/10 p-2 text-left shadow-sm transition-all hover:bg-primary/15"
           >
             <span className="flex items-center gap-2 text-xs font-medium text-primary">
               <SparklesIcon className="size-3.5" />

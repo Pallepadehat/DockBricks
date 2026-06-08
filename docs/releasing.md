@@ -1,6 +1,6 @@
 # Releasing DockBricks
 
-DockBricks uses GitHub Actions + `tauri-apps/tauri-action` for cross-platform releases.
+DockBricks uses GitHub Actions + `tauri-apps/tauri-action` for macOS releases.
 
 ## Workflows
 
@@ -99,8 +99,8 @@ This is the primary release path. Artifacts are built on GitHub-hosted runners, 
 
 ## 4) Verify Artifacts
 
-- Confirm each target artifact was uploaded (macOS, Linux, Windows).
-- Confirm package names, versions, and checksums look correct.
+- Confirm each macOS artifact was uploaded, including `latest.json` for in-app updates.
+- Confirm package names, versions, signatures, and checksums look correct.
 - Smoke test one downloaded package before announcing the release.
 
 ## macOS User Experience

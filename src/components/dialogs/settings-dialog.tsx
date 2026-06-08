@@ -1,5 +1,18 @@
 import * as React from "react";
-import { AlertTriangleIcon, BoxIcon, CheckCircle2Icon, ContainerIcon, DownloadIcon, KeyRoundIcon, Loader2Icon, RefreshCwIcon, RepeatIcon, RocketIcon, Settings2Icon, SparklesIcon } from "lucide-react";
+import {
+  AlertTriangleIcon,
+  BoxIcon,
+  CheckCircle2Icon,
+  ContainerIcon,
+  DownloadIcon,
+  KeyRoundIcon,
+  Loader2Icon,
+  RefreshCwIcon,
+  RepeatIcon,
+  RocketIcon,
+  Settings2Icon,
+  SparklesIcon,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +35,11 @@ type SettingsDialogProps = {
   currentEngine: ContainerEngine;
   useKeychain: boolean;
   autoSwitchPorts: boolean;
-  onSave: (engine: ContainerEngine, useKeychain: boolean, autoSwitchPorts: boolean) => void;
+  onSave: (
+    engine: ContainerEngine,
+    useKeychain: boolean,
+    autoSwitchPorts: boolean,
+  ) => void;
   updater: AppUpdaterState;
 };
 
@@ -35,9 +52,11 @@ export function SettingsDialog({
   onSave,
   updater,
 }: SettingsDialogProps) {
-  const [nextEngine, setNextEngine] = React.useState<ContainerEngine>(currentEngine);
+  const [nextEngine, setNextEngine] =
+    React.useState<ContainerEngine>(currentEngine);
   const [nextUseKeychain, setNextUseKeychain] = React.useState(useKeychain);
-  const [nextAutoSwitchPorts, setNextAutoSwitchPorts] = React.useState(autoSwitchPorts);
+  const [nextAutoSwitchPorts, setNextAutoSwitchPorts] =
+    React.useState(autoSwitchPorts);
   const { statuses, checking, refresh } = useContainerEngineStatuses(open);
 
   React.useEffect(() => {
@@ -62,7 +81,9 @@ export function SettingsDialog({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium">Container engine</p>
-              <p className="text-xs text-muted-foreground">Choose the runtime DockBricks should use.</p>
+              <p className="text-xs text-muted-foreground">
+                Choose the runtime DockBricks should use.
+              </p>
             </div>
             <Button
               type="button"
@@ -136,13 +157,23 @@ export function SettingsDialog({
             icon={<RepeatIcon className="size-4" />}
             title="Auto port switch"
             description="Pick the next available port automatically when a chosen port is blocked."
-            action={<Switch checked={nextAutoSwitchPorts} onCheckedChange={setNextAutoSwitchPorts} />}
+            action={
+              <Switch
+                checked={nextAutoSwitchPorts}
+                onCheckedChange={setNextAutoSwitchPorts}
+              />
+            }
           />
           <SettingRow
             icon={<KeyRoundIcon className="size-4" />}
             title="macOS Keychain passwords"
             description="Store database passwords in the system keychain instead of app storage."
-            action={<Switch checked={nextUseKeychain} onCheckedChange={setNextUseKeychain} />}
+            action={
+              <Switch
+                checked={nextUseKeychain}
+                onCheckedChange={setNextUseKeychain}
+              />
+            }
           />
         </section>
 
@@ -172,7 +203,7 @@ function UpdatePanel({ updater }: { updater: AppUpdaterState }) {
     <div className="rounded-lg border bg-muted/20 p-3">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 gap-3 text-left">
-          <span className="mt-0.5 rounded-md bg-background p-1.5 text-muted-foreground ring-1 ring-border">
+          <span className="mt-0.5 rounded-md  p-1.5 text-muted-foreground">
             <SparklesIcon className="size-4" />
           </span>
           <div className="min-w-0 space-y-1">
@@ -180,7 +211,9 @@ function UpdatePanel({ updater }: { updater: AppUpdaterState }) {
               <p className="text-sm font-medium">Updates</p>
               <Badge variant={badge.variant}>{badge.label}</Badge>
             </div>
-            <p className="text-xs text-muted-foreground">{getUpdateDescription(updater)}</p>
+            <p className="text-xs text-muted-foreground">
+              {getUpdateDescription(updater)}
+            </p>
           </div>
         </div>
         <UpdateActionButton updater={updater} />
@@ -190,7 +223,9 @@ function UpdatePanel({ updater }: { updater: AppUpdaterState }) {
         <div className="mt-3 space-y-1.5">
           <Progress value={updater.progress ?? 0} />
           <p className="text-[11px] text-muted-foreground">
-            {updater.progress === null ? "Downloading update…" : `${updater.progress}% downloaded`}
+            {updater.progress === null
+              ? "Downloading update…"
+              : `${updater.progress}% downloaded`}
           </p>
         </div>
       )}
@@ -244,9 +279,12 @@ function getUpdateBadge(status: AppUpdaterState["status"]): {
   if (status === "available") return { label: "Available", variant: "default" };
   if (status === "ready") return { label: "Ready", variant: "default" };
   if (status === "checking") return { label: "Checking", variant: "secondary" };
-  if (status === "downloading") return { label: "Installing", variant: "secondary" };
-  if (status === "unavailable") return { label: "Not published", variant: "outline" };
-  if (status === "error") return { label: "Needs attention", variant: "destructive" };
+  if (status === "downloading")
+    return { label: "Installing", variant: "secondary" };
+  if (status === "unavailable")
+    return { label: "Not published", variant: "outline" };
+  if (status === "error")
+    return { label: "Needs attention", variant: "destructive" };
 
   return { label: "Current", variant: "outline" };
 }
@@ -264,10 +302,14 @@ function getUpdateDescription(updater: AppUpdaterState) {
     return `You're up to date${updater.currentVersion ? ` on ${updater.currentVersion}` : ""}.`;
   }
 
-  if (updater.status === "checking") return "Checking GitHub Releases for a signed update.";
-  if (updater.status === "downloading") return "Downloading and installing the update securely.";
-  if (updater.status === "ready") return "Relaunch DockBricks to finish installing the update.";
-  if (updater.status === "error") return "DockBricks could not complete the update check.";
+  if (updater.status === "checking")
+    return "Checking GitHub Releases for a signed update.";
+  if (updater.status === "downloading")
+    return "Downloading and installing the update securely.";
+  if (updater.status === "ready")
+    return "Relaunch DockBricks to finish installing the update.";
+  if (updater.status === "error")
+    return "DockBricks could not complete the update check.";
 
   return "Check GitHub Releases for signed app updates.";
 }
@@ -284,7 +326,11 @@ function UpdateActionButton({ updater }: { updater: AppUpdaterState }) {
 
   if (updater.status === "available") {
     return (
-      <Button type="button" size="sm" onClick={() => void updater.installUpdate()}>
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => void updater.installUpdate()}
+      >
         <DownloadIcon className="size-4" />
         Update
       </Button>
@@ -302,7 +348,11 @@ function UpdateActionButton({ updater }: { updater: AppUpdaterState }) {
 
   if (updater.status === "ready") {
     return (
-      <Button type="button" size="sm" onClick={() => void updater.relaunchApp()}>
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => void updater.relaunchApp()}
+      >
         <RocketIcon className="size-4" />
         Relaunch
       </Button>
@@ -310,7 +360,12 @@ function UpdateActionButton({ updater }: { updater: AppUpdaterState }) {
   }
 
   return (
-    <Button type="button" variant="outline" size="sm" onClick={() => void updater.checkForUpdate()}>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => void updater.checkForUpdate()}
+    >
       <RefreshCwIcon className="size-4" />
       Check
     </Button>
