@@ -61,8 +61,8 @@ export function parseDockerComposeDatabases(
       passwordValue = `{{${secretKey}}}`;
     }
 
-    const hostPort = chooseHostPort(svc.ports, defaultPort, usedPorts);
-    usedPorts.add(Number(hostPort));
+    const portMapping = choosePortMapping(svc.ports, defaultPort, usedPorts);
+    usedPorts.add(Number(portMapping.hostPort));
     const name = uniqueName(humanName(svc.name), usedNames);
     usedNames.add(name.toLowerCase());
 
@@ -74,7 +74,8 @@ export function parseDockerComposeDatabases(
       name,
       service,
       version: imageTag(svc.image),
-      port: hostPort,
+      port: portMapping.hostPort,
+      containerPort: portMapping.containerPort,
       password: passwordValue,
       passwordSource,
       categoryIds: opts.categoryIds ?? [],
@@ -246,13 +247,22 @@ function resolvePassword(service: ServiceName, env: Record<string, string>) {
   return { value: service === "PostgreSQL" ? "postgres" : "", source: keys[0] ?? "PASSWORD", needsInput: false };
 }
 
-function chooseHostPort(ports: string[], defaultPort: string, usedPorts: Set<number>): string {
+function choosePortMapping(
+  ports: string[],
+  defaultPort: string,
+  usedPorts: Set<number>,
+): { hostPort: string; containerPort: string } {
   const mapped = ports.map((port) => port.split(":").map((part) => part.trim()).filter(Boolean));
   const found = mapped.find((parts) => parts[parts.length - 1]?.replace(/\/tcp$/, "") === defaultPort);
-  let candidate = Number(found && found.length > 1 ? found[found.length - 2] : defaultPort);
-  if (!Number.isFinite(candidate)) candidate = Number(defaultPort);
-  while (usedPorts.has(candidate)) candidate += 1;
-  return String(candidate);
+  const rawHostPort = found && found.length > 1 ? found[found.length - 2] : defaultPort;
+  let hostPort = Number(rawHostPort);
+  if (!Number.isFinite(hostPort)) hostPort = Number(defaultPort);
+  while (usedPorts.has(hostPort)) hostPort += 1;
+
+  return {
+    hostPort: String(hostPort),
+    containerPort: found?.[found.length - 1]?.replace(/\/tcp$/, "") || defaultPort,
+  };
 }
 
 function humanName(name: string): string {

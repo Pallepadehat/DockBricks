@@ -271,7 +271,9 @@ export function ImportComposeDialog({
                       <span className="truncate font-medium">{candidate.name}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">{candidate.service} {candidate.version}</span>
                     </span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">:{candidate.port}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                      :{candidate.port}→{candidate.containerPort ?? candidate.port}
+                    </span>
                   </div>
                 ))}
               </div>

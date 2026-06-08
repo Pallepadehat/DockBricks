@@ -83,6 +83,7 @@ export function useDatabaseActions({
             service: normalizedData.service,
             version: normalizedData.version,
             port: normalizedData.port,
+            container_port: normalizedData.containerPort,
             password: normalizedData.password,
           });
 
@@ -185,6 +186,7 @@ export function useDatabaseActions({
             service: data.service,
             version: data.version,
             port: data.port,
+            container_port: data.containerPort,
             password: data.password,
           },
         });
