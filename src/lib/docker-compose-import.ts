@@ -235,8 +235,8 @@ function resolvePassword(service: ServiceName, env: Record<string, string>) {
   for (const key of keys) {
     const value = env[key];
     if (!value) continue;
-    if (/^\$\{[^}]+\}$/.test(value) || /password|changeme|secret/i.test(value)) {
-      return { value: "", source: key, needsInput: /^\$\{[^}]+\}$/.test(value) };
+    if (/^\$\{[^}]+\}$/.test(value)) {
+      return { value: "", source: key, needsInput: true };
     }
     if (service === "Redis" && key === "REDIS_ARGS") {
       const match = value.match(/--requirepass\s+(\S+)/);
