@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "keychain:default"
+    "keychain:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
   ]
 }

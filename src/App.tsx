@@ -17,6 +17,7 @@ import {
 } from "@/features/databases/database-selectors";
 import { DatabaseList } from "@/features/databases/database-list";
 import { useDatabaseActions } from "@/features/databases/use-database-actions";
+import { useAppUpdater } from "@/hooks/use-app-updater";
 import { useDatabaseRuntime } from "@/hooks/use-database-runtime";
 import { useContainerEngineHealth } from "@/hooks/use-container-engine-health";
 import { usePersistentState } from "@/hooks/use-persistent-state";
@@ -69,6 +70,7 @@ export default function App() {
     [categories, selectedCategory],
   );
 
+  const updater = useAppUpdater(passwordsReady);
   const { engineStatus, showEngineWarning, retryEngineCheck } =
     useContainerEngineHealth(selectedEngine);
 
@@ -156,6 +158,7 @@ export default function App() {
           setShowCreateDatabase(true);
         }}
         onOpenSettings={() => setShowSettings(true)}
+        updateAvailable={updater.status === "available" || updater.status === "ready"}
       />
 
       <SidebarInset className="flex flex-col overflow-hidden">
@@ -251,6 +254,7 @@ export default function App() {
         currentEngine={selectedEngine}
         useKeychain={useKeychain}
         autoSwitchPorts={autoSwitchPorts}
+        updater={updater}
         onSave={(engine, nextUseKeychain, nextAutoSwitchPorts) => {
           setContainerEngine(engine);
           setUseKeychain(nextUseKeychain);
