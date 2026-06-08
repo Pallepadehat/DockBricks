@@ -16,7 +16,11 @@ export function databasePasswordKey(databaseId: string) {
 }
 
 export async function saveKeychainPassword(databaseId: string, password: string) {
-  if (!password) return;
+  if (!password) {
+    await removeKeychainPassword(databaseId);
+    return;
+  }
+
   await invoke("save_keychain_password", {
     key: databasePasswordKey(databaseId),
     password,

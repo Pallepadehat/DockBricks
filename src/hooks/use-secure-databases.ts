@@ -72,18 +72,27 @@ export function useSecureDatabases(): {
       const removedIds = [...previousIds.current].filter((id) => !currentIds.has(id));
       previousIds.current = currentIds;
 
-      void (async () => {
-        if (useKeychain) {
-          await Promise.all(databases.map((db) => saveKeychainPassword(db.id, db.password)));
-          await Promise.all(removedIds.map(removeKeychainPassword));
-          localStorage.setItem(DATABASES_STORAGE_KEY, JSON.stringify(withoutStoredPasswords(databases)));
-        } else {
-          await Promise.all(removedIds.map(removeKeychainPassword));
-          localStorage.setItem(DATABASES_STORAGE_KEY, JSON.stringify(databases));
-        }
-      })().catch((error) => {
-        console.error("Failed to persist databases securely:", error);
-      });
+      if (useKeychain) {
+        localStorage.setItem(DATABASES_STORAGE_KEY, JSON.stringify(withoutStoredPasswords(databases)));
+
+        void Promise.allSettled([
+          ...databases.map((db) => saveKeychainPassword(db.id, db.password)),
+          ...removedIds.map(removeKeychainPassword),
+        ]).then((results) => {
+          const rejected = results.filter((result) => result.status === "rejected");
+          if (rejected.length > 0) {
+            console.error("Failed to persist one or more keychain passwords:", rejected);
+          }
+        });
+      } else {
+        void Promise.allSettled(removedIds.map(removeKeychainPassword)).then((results) => {
+          const rejected = results.filter((result) => result.status === "rejected");
+          if (rejected.length > 0) {
+            console.error("Failed to remove one or more keychain passwords:", rejected);
+          }
+        });
+        localStorage.setItem(DATABASES_STORAGE_KEY, JSON.stringify(databases));
+      }
     }, PERSIST_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
