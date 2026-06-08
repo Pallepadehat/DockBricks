@@ -116,6 +116,7 @@ function parseServices(text: string): ParsedService[] {
   const services: ParsedService[] = [];
   let current: ParsedService | null = null;
   let mode: "ports" | "environment" | null = null;
+  let pendingPort: { target?: string; published?: string } | null = null;
 
   for (let i = servicesIndex + 1; i < lines.length; i += 1) {
     const raw = stripComment(lines[i]);
@@ -129,6 +130,7 @@ function parseServices(text: string): ParsedService[] {
       current = { name: serviceMatch[1], image: "", ports: [], env: {} };
       services.push(current);
       mode = null;
+      pendingPort = null;
       continue;
     }
     if (!current) continue;
@@ -140,19 +142,38 @@ function parseServices(text: string): ParsedService[] {
       const value = unquote(prop[2]);
       if (key === "image") current.image = value;
       if (key === "container_name") current.containerName = value;
-      if (key === "ports") mode = "ports";
-      if (key === "environment") mode = "environment";
+      if (key === "ports") {
+        mode = "ports";
+        pendingPort = null;
+        const service = current;
+        parseInlineList(value).forEach((entry) => service.ports.push(entry));
+      }
+      if (key === "environment") {
+        mode = "environment";
+        const service = current;
+        parseInlineList(value).forEach((entry) => addEnvironmentEntry(service, entry));
+      }
       continue;
     }
 
     if (mode === "ports") {
-      const port = trimmed.replace(/^-\s*/, "");
-      if (port) current.ports.push(unquote(port));
+      const item = trimmed.replace(/^-\s*/, "");
+      const longPort = item.match(/^(target|published)\s*:\s*(.*)$/);
+      if (longPort) {
+        pendingPort ??= {};
+        pendingPort[longPort[1] as "target" | "published"] = unquote(longPort[2]);
+        if (pendingPort.target && pendingPort.published) {
+          current.ports.push(`${pendingPort.published}:${pendingPort.target}`);
+          pendingPort = null;
+        }
+      } else if (item) {
+        current.ports.push(unquote(item));
+        pendingPort = null;
+      }
     }
     if (mode === "environment") {
       const item = trimmed.replace(/^-\s*/, "");
-      const envMatch = item.match(/^([A-Za-z_][\w]*)(?:\s*[:=]\s*)(.*)$/);
-      if (envMatch) current.env[envMatch[1]] = unquote(envMatch[2]);
+      addEnvironmentEntry(current, item);
     }
   }
 
@@ -165,6 +186,37 @@ function stripComment(line: string): string {
 
 function unquote(value: string): string {
   return value.trim().replace(/^['"]|['"]$/g, "");
+}
+
+function parseInlineList(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return [];
+
+  return trimmed
+    .slice(1, -1)
+    .split(/,(?![^{}]*\})/)
+    .map((entry) => unquote(entry.trim()))
+    .filter(Boolean)
+    .map((entry) => parseInlinePortObject(entry) ?? entry);
+}
+
+function parseInlinePortObject(entry: string): string | null {
+  const target = entry.match(/target\s*:\s*['"]?(\d+)['"]?/i)?.[1];
+  const published = entry.match(/published\s*:\s*['"]?(\d+)['"]?/i)?.[1];
+  return target && published ? `${published}:${target}` : null;
+}
+
+function addEnvironmentEntry(service: ParsedService, item: string) {
+  const cleanItem = unquote(item);
+  const envMatch = cleanItem.match(/^([A-Za-z_][\w]*)(?:\s*[:=]\s*)(.*)$/);
+  if (envMatch) {
+    service.env[envMatch[1]] = unquote(envMatch[2]);
+    return;
+  }
+
+  if (/^[A-Za-z_][\w]*$/.test(cleanItem)) {
+    service.env[cleanItem] = `\${${cleanItem}}`;
+  }
 }
 
 function detectService(image: string) {
@@ -198,6 +250,7 @@ function chooseHostPort(ports: string[], defaultPort: string, usedPorts: Set<num
   const mapped = ports.map((port) => port.split(":").map((part) => part.trim()).filter(Boolean));
   const found = mapped.find((parts) => parts[parts.length - 1]?.replace(/\/tcp$/, "") === defaultPort);
   let candidate = Number(found && found.length > 1 ? found[found.length - 2] : defaultPort);
+  if (!Number.isFinite(candidate)) candidate = Number(defaultPort);
   while (usedPorts.has(candidate)) candidate += 1;
   return String(candidate);
 }
