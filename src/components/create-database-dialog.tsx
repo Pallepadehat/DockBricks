@@ -300,14 +300,15 @@ export function CreateDatabaseDialog({
             });
           } else {
             const blockedPort = port.trim();
-            const nextPort = await findAvailablePortCandidate(
-              defaultEngine,
-              blockedPort,
-              existingDatabases,
-            );
-            if (portRequestId.current !== requestId) return;
 
             if (autoSwitchPorts) {
+              const nextPort = await findAvailablePortCandidate(
+                defaultEngine,
+                blockedPort,
+                existingDatabases,
+              );
+              if (portRequestId.current !== requestId) return;
+
               setPort(nextPort);
               setPortState({
                 status: "checking",
@@ -316,6 +317,7 @@ export function CreateDatabaseDialog({
               return;
             }
 
+            const nextPort = getNextPortCandidate(blockedPort, existingDatabases);
             setPortState({
               status: "unavailable",
               message: `${status.error ?? `Port ${blockedPort} is in use.`} Try ${nextPort}.`,
