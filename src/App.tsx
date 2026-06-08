@@ -34,6 +34,10 @@ export default function App() {
     "dockbricks_container_engine",
     null,
   );
+  const [autoSwitchPorts, setAutoSwitchPorts] = usePersistentState<boolean>(
+    "dockbricks_auto_switch_ports",
+    true,
+  );
 
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
     null,
@@ -196,6 +200,7 @@ export default function App() {
         isCreating={false}
         createError={createError}
         engineRunning={engineStatus?.running ?? false}
+        autoSwitchPorts={autoSwitchPorts}
       />
 
       <CreateDatabaseDialog
@@ -223,6 +228,7 @@ export default function App() {
             : null
         }
         engineRunning={engineStatus?.running ?? false}
+        autoSwitchPorts={autoSwitchPorts}
       />
 
       <DeleteDatabaseDialog
@@ -244,9 +250,11 @@ export default function App() {
         onOpenChange={setShowSettings}
         currentEngine={selectedEngine}
         useKeychain={useKeychain}
-        onSave={(engine, nextUseKeychain) => {
+        autoSwitchPorts={autoSwitchPorts}
+        onSave={(engine, nextUseKeychain, nextAutoSwitchPorts) => {
           setContainerEngine(engine);
           setUseKeychain(nextUseKeychain);
+          setAutoSwitchPorts(nextAutoSwitchPorts);
         }}
       />
     </SidebarProvider>

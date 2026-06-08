@@ -1,5 +1,5 @@
 import * as React from "react";
-import { AlertTriangleIcon, BoxIcon, CheckCircle2Icon, ContainerIcon, KeyRoundIcon, Loader2Icon, Settings2Icon } from "lucide-react";
+import { AlertTriangleIcon, BoxIcon, CheckCircle2Icon, ContainerIcon, KeyRoundIcon, Loader2Icon, RepeatIcon, Settings2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -18,7 +18,8 @@ type SettingsDialogProps = {
   onOpenChange: (open: boolean) => void;
   currentEngine: ContainerEngine;
   useKeychain: boolean;
-  onSave: (engine: ContainerEngine, useKeychain: boolean) => void;
+  autoSwitchPorts: boolean;
+  onSave: (engine: ContainerEngine, useKeychain: boolean, autoSwitchPorts: boolean) => void;
 };
 
 export function SettingsDialog({
@@ -26,18 +27,21 @@ export function SettingsDialog({
   onOpenChange,
   currentEngine,
   useKeychain,
+  autoSwitchPorts,
   onSave,
 }: SettingsDialogProps) {
   const [nextEngine, setNextEngine] = React.useState<ContainerEngine>(currentEngine);
   const [nextUseKeychain, setNextUseKeychain] = React.useState(useKeychain);
+  const [nextAutoSwitchPorts, setNextAutoSwitchPorts] = React.useState(autoSwitchPorts);
   const { statuses, checking, refresh } = useContainerEngineStatuses(open);
 
   React.useEffect(() => {
     if (open) {
       setNextEngine(currentEngine);
       setNextUseKeychain(useKeychain);
+      setNextAutoSwitchPorts(autoSwitchPorts);
     }
-  }, [currentEngine, open, useKeychain]);
+  }, [autoSwitchPorts, currentEngine, open, useKeychain]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -117,18 +121,35 @@ export function SettingsDialog({
           </p>
         </div>
 
-        <div className="rounded-lg border bg-muted/20 p-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex gap-3 text-left">
-              <KeyRoundIcon className="mt-0.5 size-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">macOS Keychain passwords</p>
-                <p className="text-xs text-muted-foreground">
-                  Store database passwords in the system keychain instead of app storage.
-                </p>
+        <div className="space-y-2">
+          <div className="rounded-lg border bg-muted/20 p-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex gap-3 text-left">
+                <RepeatIcon className="mt-0.5 size-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Auto port switch</p>
+                  <p className="text-xs text-muted-foreground">
+                    Automatically pick the next available port when the selected port is blocked.
+                  </p>
+                </div>
               </div>
+              <Switch checked={nextAutoSwitchPorts} onCheckedChange={setNextAutoSwitchPorts} />
             </div>
-            <Switch checked={nextUseKeychain} onCheckedChange={setNextUseKeychain} />
+          </div>
+
+          <div className="rounded-lg border bg-muted/20 p-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex gap-3 text-left">
+                <KeyRoundIcon className="mt-0.5 size-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">macOS Keychain passwords</p>
+                  <p className="text-xs text-muted-foreground">
+                    Store database passwords in the system keychain instead of app storage.
+                  </p>
+                </div>
+              </div>
+              <Switch checked={nextUseKeychain} onCheckedChange={setNextUseKeychain} />
+            </div>
           </div>
         </div>
 
@@ -138,7 +159,7 @@ export function SettingsDialog({
           </Button>
           <Button
             onClick={() => {
-              onSave(nextEngine, nextUseKeychain);
+              onSave(nextEngine, nextUseKeychain, nextAutoSwitchPorts);
               onOpenChange(false);
             }}
             disabled={!statuses[nextEngine]?.installed}
