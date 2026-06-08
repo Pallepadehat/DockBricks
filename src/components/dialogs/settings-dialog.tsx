@@ -1,8 +1,7 @@
 import * as React from "react";
-import { AlertTriangleIcon, BoxIcon, CheckCircle2Icon, ContainerIcon, KeyRoundIcon, Loader2Icon, Settings2Icon } from "lucide-react";
+import { AlertTriangleIcon, BoxIcon, CheckCircle2Icon, ContainerIcon, Loader2Icon, Settings2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -17,27 +16,21 @@ type SettingsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   currentEngine: ContainerEngine;
-  useKeychain: boolean;
-  onSave: (engine: ContainerEngine, useKeychain: boolean) => void;
+  onSave: (engine: ContainerEngine) => void;
 };
 
 export function SettingsDialog({
   open,
   onOpenChange,
   currentEngine,
-  useKeychain,
   onSave,
 }: SettingsDialogProps) {
   const [nextEngine, setNextEngine] = React.useState<ContainerEngine>(currentEngine);
-  const [nextUseKeychain, setNextUseKeychain] = React.useState(useKeychain);
   const { statuses, checking, refresh } = useContainerEngineStatuses(open);
 
   React.useEffect(() => {
-    if (open) {
-      setNextEngine(currentEngine);
-      setNextUseKeychain(useKeychain);
-    }
-  }, [currentEngine, open, useKeychain]);
+    if (open) setNextEngine(currentEngine);
+  }, [currentEngine, open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -117,28 +110,13 @@ export function SettingsDialog({
           </p>
         </div>
 
-        <div className="rounded-lg border bg-muted/20 p-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex gap-3 text-left">
-              <KeyRoundIcon className="mt-0.5 size-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">macOS Keychain passwords</p>
-                <p className="text-xs text-muted-foreground">
-                  Store database passwords in the system keychain instead of app storage.
-                </p>
-              </div>
-            </div>
-            <Switch checked={nextUseKeychain} onCheckedChange={setNextUseKeychain} />
-          </div>
-        </div>
-
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
             onClick={() => {
-              onSave(nextEngine, nextUseKeychain);
+              onSave(nextEngine);
               onOpenChange(false);
             }}
             disabled={!statuses[nextEngine]?.installed}
