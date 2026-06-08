@@ -152,6 +152,15 @@ export function useDatabaseActions({
     ],
   );
 
+  const handleImportDatabases = React.useCallback(
+    (items: Omit<Database, "id" | "containerId">[]) => {
+      for (const item of items) {
+        void handleCreateDatabase(item);
+      }
+    },
+    [handleCreateDatabase],
+  );
+
   const handleEditDatabase = React.useCallback(
     async (data: Omit<Database, "id" | "containerId">) => {
       if (!editingDatabaseId) return;
@@ -352,6 +361,7 @@ export function useDatabaseActions({
     pendingDeleteDatabaseId,
     setPendingDeleteDatabaseId,
     handleCreateDatabase,
+    handleImportDatabases,
     handleEditDatabase,
     handleConfirmDeleteDatabase,
     handleToggleContainer,
