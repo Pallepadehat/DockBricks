@@ -411,7 +411,10 @@ fn container_usage(engine_bin: &str, target: &str, running: bool) -> ContainerRu
                 }
                 let raw = String::from_utf8_lossy(&out.stdout).trim().to_string();
                 let (cpu, mem) = raw.split_once('|')?;
-                Some((Some(cpu.trim().to_string()), Some(compact_memory_usage(mem))))
+                Some((
+                    Some(cpu.trim().to_string()),
+                    Some(compact_memory_usage(mem)),
+                ))
             })
             .unwrap_or((None, None))
     } else {
@@ -429,7 +432,11 @@ fn compact_memory_usage(value: &str) -> String {
     let used = value.split('/').next().unwrap_or(value).trim();
     parse_size_to_bytes(used)
         .and_then(format_bytes)
-        .unwrap_or_else(|| used.replace("MiB", "MB").replace("GiB", "GB").replace("KiB", "KB"))
+        .unwrap_or_else(|| {
+            used.replace("MiB", "MB")
+                .replace("GiB", "GB")
+                .replace("KiB", "KB")
+        })
 }
 
 fn parse_size_to_bytes(value: &str) -> Option<u64> {
