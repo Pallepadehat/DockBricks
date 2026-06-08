@@ -6,6 +6,9 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "keychain:default"
+    "keychain:default",
+    "process:allow-restart",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
   ]
 }

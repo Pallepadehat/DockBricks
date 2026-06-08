@@ -76,8 +76,8 @@ GitHub Actions builds all desktop targets on version tags (`v*`) and creates a d
 - CI: [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)
 - Release: [`.github/workflows/release.yml`](./.github/workflows/release.yml)
 
-Release builds run in GitHub Actions (macOS, Linux, Windows). You do not need to build releases locally on your Mac to publish.
-For best macOS user experience, configure Apple signing/notarization secrets (see `docs/releasing.md`).
+Release builds currently ship for macOS only. You do not need to build releases locally on your Mac to publish.
+For the best macOS user experience, configure Apple signing/notarization secrets (see `docs/releasing.md`).
 
 ## Documentation
 

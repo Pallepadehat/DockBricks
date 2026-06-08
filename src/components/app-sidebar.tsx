@@ -4,6 +4,7 @@ import {
   PlusIcon,
   FolderIcon,
   Settings,
+  SparklesIcon,
 } from "lucide-react";
 
 import {
@@ -32,6 +33,7 @@ type AppSidebarProps = {
   onCreateCategory: () => void;
   onCreateDatabase: () => void;
   onOpenSettings: () => void;
+  updateAvailable: boolean;
 };
 
 export function AppSidebar({
@@ -41,6 +43,7 @@ export function AppSidebar({
   onCreateCategory,
   onCreateDatabase,
   onOpenSettings,
+  updateAvailable,
 }: AppSidebarProps) {
   return (
     <Sidebar collapsible="none" className="border-r">
@@ -98,6 +101,21 @@ export function AppSidebar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {updateAvailable && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="group mb-1 w-full rounded-xl border border-primary/20 bg-primary/10 p-2 text-left shadow-sm transition-all hover:bg-primary/15"
+          >
+            <span className="flex items-center gap-2 text-xs font-medium text-primary">
+              <SparklesIcon className="size-3.5" />
+              New update available
+            </span>
+            <span className="mt-1 block text-[11px] leading-tight text-muted-foreground">
+              Open settings to install from GitHub Releases.
+            </span>
+          </button>
+        )}
         <SidebarMenuButton
           type="button"
           onClick={onOpenSettings}
