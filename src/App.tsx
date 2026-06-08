@@ -5,6 +5,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { CreateCategoryDialog } from "@/components/create-category-dialog";
 import { CreateDatabaseDialog } from "@/components/create-database-dialog";
+import { ImportComposeDialog } from "@/components/import-compose-dialog";
 import { DeleteDatabaseDialog } from "@/components/dialogs/delete-database-dialog";
 import { SettingsDialog } from "@/components/dialogs/settings-dialog";
 import { EngineWarningBanner } from "@/components/engine-warning-banner";
@@ -45,6 +46,7 @@ export default function App() {
   );
   const [showCreateCategory, setShowCreateCategory] = React.useState(false);
   const [showCreateDatabase, setShowCreateDatabase] = React.useState(false);
+  const [showImportCompose, setShowImportCompose] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const [showEditDatabase, setShowEditDatabase] = React.useState(false);
   const [editingDatabaseId, setEditingDatabaseId] = React.useState<
@@ -93,6 +95,7 @@ export default function App() {
     pendingDeleteDatabaseId,
     setPendingDeleteDatabaseId,
     handleCreateDatabase,
+    handleImportDatabases,
     handleEditDatabase,
     handleConfirmDeleteDatabase,
     handleToggleContainer,
@@ -157,6 +160,7 @@ export default function App() {
           setCreateError(null);
           setShowCreateDatabase(true);
         }}
+        onImportCompose={() => setShowImportCompose(true)}
         onOpenSettings={() => setShowSettings(true)}
         updateAvailable={updater.status === "available" || updater.status === "ready"}
       />
@@ -188,6 +192,16 @@ export default function App() {
         open={showCreateCategory}
         onOpenChange={setShowCreateCategory}
         onSave={handleCreateCategory}
+      />
+
+      <ImportComposeDialog
+        open={showImportCompose}
+        onOpenChange={setShowImportCompose}
+        categories={categories}
+        selectedCategory={selectedCategory}
+        existingDatabases={databases}
+        defaultEngine={selectedEngine}
+        onImport={handleImportDatabases}
       />
 
       <CreateDatabaseDialog

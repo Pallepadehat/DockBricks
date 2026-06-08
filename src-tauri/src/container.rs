@@ -166,7 +166,7 @@ fn create_validated_database_blocking(req: ValidatedCreateDatabaseRequest) -> Cr
         "--name".into(),
         container_name,
         "-p".into(),
-        format!("{}:{}", req.port, req.port),
+        format!("{}:{}", req.port, req.container_port),
     ];
 
     for (key, value) in env_vars(req.service, &req.password) {

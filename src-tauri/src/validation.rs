@@ -47,6 +47,14 @@ impl Service {
             _ => 6,
         }
     }
+
+    pub fn default_port(self) -> u16 {
+        match self {
+            Self::MariaDb | Self::MySql => 3306,
+            Self::PostgreSql => 5432,
+            Self::Redis => 6379,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +64,7 @@ pub struct ValidatedCreateDatabaseRequest {
     pub service: Service,
     pub version: String,
     pub port: u16,
+    pub container_port: u16,
     pub password: String,
 }
 
@@ -85,6 +94,10 @@ pub fn validate_create_request(
     let name = validate_name(&req.name)?;
     let version = validate_version(&req.version)?;
     let port = validate_port(&req.port)?;
+    let container_port = match req.container_port.as_deref() {
+        Some(value) if !value.trim().is_empty() => validate_port(value)?,
+        _ => service.default_port(),
+    };
 
     Ok(ValidatedCreateDatabaseRequest {
         engine,
@@ -92,6 +105,7 @@ pub fn validate_create_request(
         service,
         version,
         port,
+        container_port,
         password: req.password,
     })
 }

@@ -1,6 +1,7 @@
 import {
   HomeIcon,
   DatabaseIcon,
+  FileCodeIcon,
   PlusIcon,
   FolderIcon,
   Settings,
@@ -32,6 +33,7 @@ type AppSidebarProps = {
   onSelectCategory: (id: string | null) => void;
   onCreateCategory: () => void;
   onCreateDatabase: () => void;
+  onImportCompose: () => void;
   onOpenSettings: () => void;
   updateAvailable: boolean;
 };
@@ -42,6 +44,7 @@ export function AppSidebar({
   onSelectCategory,
   onCreateCategory,
   onCreateDatabase,
+  onImportCompose,
   onOpenSettings,
   updateAvailable,
 }: AppSidebarProps) {
@@ -94,6 +97,10 @@ export function AppSidebar({
             <DropdownMenuItem onClick={onCreateDatabase}>
               <DatabaseIcon className="size-4" />
               Create Database
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onImportCompose}>
+              <FileCodeIcon className="size-4" />
+              Import Compose
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onCreateCategory}>
               <FolderIcon className="size-4" />
