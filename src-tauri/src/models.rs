@@ -15,6 +15,7 @@ pub struct CreateDatabaseRequest {
     pub service: String,
     pub version: String,
     pub port: String,
+    pub container_port: Option<String>,
     pub password: String,
 }
 

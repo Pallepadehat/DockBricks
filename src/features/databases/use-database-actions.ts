@@ -83,6 +83,7 @@ export function useDatabaseActions({
             service: normalizedData.service,
             version: normalizedData.version,
             port: normalizedData.port,
+            container_port: normalizedData.containerPort,
             password: normalizedData.password,
           });
 
@@ -152,6 +153,15 @@ export function useDatabaseActions({
     ],
   );
 
+  const handleImportDatabases = React.useCallback(
+    (items: Omit<Database, "id" | "containerId">[]) => {
+      for (const item of items) {
+        void handleCreateDatabase(item);
+      }
+    },
+    [handleCreateDatabase],
+  );
+
   const handleEditDatabase = React.useCallback(
     async (data: Omit<Database, "id" | "containerId">) => {
       if (!editingDatabaseId) return;
@@ -176,6 +186,7 @@ export function useDatabaseActions({
             service: data.service,
             version: data.version,
             port: data.port,
+            container_port: data.containerPort,
             password: data.password,
           },
         });
@@ -352,6 +363,7 @@ export function useDatabaseActions({
     pendingDeleteDatabaseId,
     setPendingDeleteDatabaseId,
     handleCreateDatabase,
+    handleImportDatabases,
     handleEditDatabase,
     handleConfirmDeleteDatabase,
     handleToggleContainer,

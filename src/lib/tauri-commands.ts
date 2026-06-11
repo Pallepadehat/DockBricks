@@ -14,6 +14,7 @@ export interface CreateDatabaseRequest {
   service: ServiceName
   version: string
   port: string
+  container_port?: string
   password: string
 }
 

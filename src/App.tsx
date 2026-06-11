@@ -5,6 +5,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { CreateCategoryDialog } from "@/components/create-category-dialog";
 import { CreateDatabaseDialog } from "@/components/create-database-dialog";
+import { ImportComposeDialog } from "@/components/import-compose-dialog";
 import { DeleteDatabaseDialog } from "@/components/dialogs/delete-database-dialog";
 import { SettingsDialog } from "@/components/dialogs/settings-dialog";
 import { EngineWarningBanner } from "@/components/engine-warning-banner";
@@ -17,6 +18,7 @@ import {
 } from "@/features/databases/database-selectors";
 import { DatabaseList } from "@/features/databases/database-list";
 import { useDatabaseActions } from "@/features/databases/use-database-actions";
+import { useAppUpdater } from "@/hooks/use-app-updater";
 import { useDatabaseRuntime } from "@/hooks/use-database-runtime";
 import { useContainerEngineHealth } from "@/hooks/use-container-engine-health";
 import { usePersistentState } from "@/hooks/use-persistent-state";
@@ -35,12 +37,17 @@ export default function App() {
     "dockbricks_container_engine",
     null,
   );
+  const [autoSwitchPorts, setAutoSwitchPorts] = usePersistentState<boolean>(
+    "dockbricks_auto_switch_ports",
+    true,
+  );
 
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
     null,
   );
   const [showCreateCategory, setShowCreateCategory] = React.useState(false);
   const [showCreateDatabase, setShowCreateDatabase] = React.useState(false);
+  const [showImportCompose, setShowImportCompose] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const [showEditDatabase, setShowEditDatabase] = React.useState(false);
   const [editingDatabaseId, setEditingDatabaseId] = React.useState<
@@ -66,6 +73,7 @@ export default function App() {
     [categories, selectedCategory],
   );
 
+  const updater = useAppUpdater(passwordsReady);
   const { engineStatus, showEngineWarning, retryEngineCheck } =
     useContainerEngineHealth(selectedEngine);
 
@@ -88,6 +96,7 @@ export default function App() {
     pendingDeleteDatabaseId,
     setPendingDeleteDatabaseId,
     handleCreateDatabase,
+    handleImportDatabases,
     handleEditDatabase,
     handleConfirmDeleteDatabase,
     handleToggleContainer,
@@ -148,7 +157,9 @@ export default function App() {
           setCreateError(null);
           setShowCreateDatabase(true);
         }}
+        onImportCompose={() => setShowImportCompose(true)}
         onOpenSettings={() => setShowSettings(true)}
+        updateAvailable={updater.status === "available" || updater.status === "ready"}
       />
 
       <SidebarInset className="flex flex-col overflow-hidden">
@@ -180,6 +191,16 @@ export default function App() {
         onSave={handleCreateCategory}
       />
 
+      <ImportComposeDialog
+        open={showImportCompose}
+        onOpenChange={setShowImportCompose}
+        categories={categories}
+        selectedCategory={selectedCategory}
+        existingDatabases={databases}
+        defaultEngine={selectedEngine}
+        onImport={handleImportDatabases}
+      />
+
       <CreateDatabaseDialog
         open={showCreateDatabase}
         onOpenChange={(open) => {
@@ -193,6 +214,7 @@ export default function App() {
         isCreating={false}
         createError={createError}
         engineRunning={engineStatus?.running ?? false}
+        autoSwitchPorts={autoSwitchPorts}
       />
 
       <CreateDatabaseDialog
@@ -220,6 +242,7 @@ export default function App() {
             : null
         }
         engineRunning={engineStatus?.running ?? false}
+        autoSwitchPorts={autoSwitchPorts}
       />
 
       <DeleteDatabaseDialog

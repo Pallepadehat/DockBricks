@@ -90,6 +90,7 @@ type CreateDatabaseDialogProps = {
   isCreating?: boolean;
   createError?: string | null;
   engineRunning?: boolean;
+  autoSwitchPorts?: boolean;
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -106,6 +107,7 @@ export function CreateDatabaseDialog({
   isCreating = false,
   createError = null,
   engineRunning = true,
+  autoSwitchPorts = true,
 }: CreateDatabaseDialogProps) {
   const [name, setName] = React.useState("");
   const [service, setService] = React.useState<ServiceName | "">("");
@@ -297,10 +299,28 @@ export function CreateDatabaseDialog({
               message: null,
             });
           } else {
-            const nextPort = getNextPortCandidate(port.trim(), existingDatabases);
+            const blockedPort = port.trim();
+
+            if (autoSwitchPorts) {
+              const nextPort = await findAvailablePortCandidate(
+                defaultEngine,
+                blockedPort,
+                existingDatabases,
+              );
+              if (portRequestId.current !== requestId) return;
+
+              setPort(nextPort);
+              setPortState({
+                status: "checking",
+                message: `Port ${blockedPort} is blocked. Switching to ${nextPort}...`,
+              });
+              return;
+            }
+
+            const nextPort = getNextPortCandidate(blockedPort, existingDatabases);
             setPortState({
               status: "unavailable",
-              message: `${status.error ?? `Port ${port.trim()} is in use.`} Try ${nextPort}.`,
+              message: `${status.error ?? `Port ${blockedPort} is in use.`} Try ${nextPort}.`,
             });
           }
         } catch (error) {
@@ -314,7 +334,7 @@ export function CreateDatabaseDialog({
     }, 250);
 
     return () => window.clearTimeout(timeoutId);
-  }, [defaultEngine, existingDatabases, initialDatabase?.port, mode, open, port]);
+  }, [autoSwitchPorts, defaultEngine, existingDatabases, initialDatabase?.port, mode, open, port]);
 
   const canSave =
     !isCreating &&
@@ -594,11 +614,7 @@ function getNextPortCandidate(
   existingDatabases: Array<Pick<Database, "port">>,
 ): string {
   const numericPort = Number(port);
-  const usedPorts = new Set(
-    existingDatabases
-      .map((db) => Number(db.port))
-      .filter((existingPort) => Number.isFinite(existingPort)),
-  );
+  const usedPorts = getUsedPorts(existingDatabases);
 
   let candidate = Number.isFinite(numericPort) ? numericPort + 1 : 5433;
   while (candidate <= 65535 && usedPorts.has(candidate)) {
@@ -606,4 +622,31 @@ function getNextPortCandidate(
   }
 
   return String(candidate <= 65535 ? candidate : 5433);
+}
+
+async function findAvailablePortCandidate(
+  engine: ContainerEngine,
+  port: string,
+  existingDatabases: Array<Pick<Database, "port">>,
+): Promise<string> {
+  const usedPorts = getUsedPorts(existingDatabases);
+  let candidate = Number(getNextPortCandidate(port, existingDatabases));
+
+  for (let attempts = 0; attempts < 100 && candidate <= 65535; attempts += 1) {
+    if (!usedPorts.has(candidate)) {
+      const status = await checkHostPort(engine, String(candidate));
+      if (status.available) return String(candidate);
+    }
+    candidate += 1;
+  }
+
+  return getNextPortCandidate(port, existingDatabases);
+}
+
+function getUsedPorts(existingDatabases: Array<Pick<Database, "port">>): Set<number> {
+  return new Set(
+    existingDatabases
+      .map((db) => Number(db.port))
+      .filter((existingPort) => Number.isFinite(existingPort)),
+  );
 }
