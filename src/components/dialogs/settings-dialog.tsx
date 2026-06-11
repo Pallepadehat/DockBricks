@@ -1,8 +1,23 @@
 import * as React from "react";
-import { AlertTriangleIcon, BoxIcon, CheckCircle2Icon, ContainerIcon, Loader2Icon, Settings2Icon } from "lucide-react";
+import {
+  AlertTriangleIcon,
+  BoxIcon,
+  CheckCircle2Icon,
+  ContainerIcon,
+  DownloadIcon,
+  KeyRoundIcon,
+  Loader2Icon,
+  RefreshCwIcon,
+  RepeatIcon,
+  RocketIcon,
+  Settings2Icon,
+  SparklesIcon,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -18,22 +33,39 @@ type SettingsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   currentEngine: ContainerEngine;
-  onSave: (engine: ContainerEngine) => void;
+  useKeychain: boolean;
+  autoSwitchPorts: boolean;
+  onSave: (
+    engine: ContainerEngine,
+    useKeychain: boolean,
+    autoSwitchPorts: boolean,
+  ) => void;
+  updater: AppUpdaterState;
 };
 
 export function SettingsDialog({
   open,
   onOpenChange,
   currentEngine,
+  useKeychain,
+  autoSwitchPorts,
   onSave,
   updater,
 }: SettingsDialogProps) {
-  const [nextEngine, setNextEngine] = React.useState<ContainerEngine>(currentEngine);
+  const [nextEngine, setNextEngine] =
+    React.useState<ContainerEngine>(currentEngine);
+  const [nextUseKeychain, setNextUseKeychain] = React.useState(useKeychain);
+  const [nextAutoSwitchPorts, setNextAutoSwitchPorts] =
+    React.useState(autoSwitchPorts);
   const { statuses, checking, refresh } = useContainerEngineStatuses(open);
 
   React.useEffect(() => {
-    if (open) setNextEngine(currentEngine);
-  }, [currentEngine, open]);
+    if (open) {
+      setNextEngine(currentEngine);
+      setNextUseKeychain(useKeychain);
+      setNextAutoSwitchPorts(autoSwitchPorts);
+    }
+  }, [autoSwitchPorts, currentEngine, open, useKeychain]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -118,13 +150,40 @@ export function SettingsDialog({
           </p>
         </section>
 
+        <section className="space-y-2">
+          <p className="text-sm font-medium">App</p>
+          <UpdatePanel updater={updater} />
+          <SettingRow
+            icon={<RepeatIcon className="size-4" />}
+            title="Auto port switch"
+            description="Pick the next available port automatically when a chosen port is blocked."
+            action={
+              <Switch
+                checked={nextAutoSwitchPorts}
+                onCheckedChange={setNextAutoSwitchPorts}
+              />
+            }
+          />
+          <SettingRow
+            icon={<KeyRoundIcon className="size-4" />}
+            title="macOS Keychain passwords"
+            description="Store database passwords in the system keychain instead of app storage."
+            action={
+              <Switch
+                checked={nextUseKeychain}
+                onCheckedChange={setNextUseKeychain}
+              />
+            }
+          />
+        </section>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
             onClick={() => {
-              onSave(nextEngine);
+              onSave(nextEngine, nextUseKeychain, nextAutoSwitchPorts);
               onOpenChange(false);
             }}
             disabled={!statuses[nextEngine]?.installed}

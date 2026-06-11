@@ -22,17 +22,16 @@ import { useAppUpdater } from "@/hooks/use-app-updater";
 import { useDatabaseRuntime } from "@/hooks/use-database-runtime";
 import { useContainerEngineHealth } from "@/hooks/use-container-engine-health";
 import { usePersistentState } from "@/hooks/use-persistent-state";
-import type { Category, ContainerEngine, Database } from "@/types/models";
+import { useSecureDatabases } from "@/hooks/use-secure-databases";
+import type { Category, ContainerEngine } from "@/types/models";
 
 export default function App() {
   const [categories, setCategories] = usePersistentState<Category[]>(
     "dockbricks_categories",
     [],
   );
-  const [databases, setDatabases] = usePersistentState<Database[]>(
-    "dockbricks_databases",
-    [],
-  );
+  const { databases, setDatabases, useKeychain, setUseKeychain, passwordsReady } =
+    useSecureDatabases();
   const [containerEngine, setContainerEngine] = usePersistentState<ContainerEngine | null>(
     "dockbricks_container_engine",
     null,
@@ -139,6 +138,10 @@ export default function App() {
 
   if (!containerEngine) {
     return <EngineOnboarding onSelectEngine={setContainerEngine} />;
+  }
+
+  if (!passwordsReady) {
+    return null;
   }
 
   function handleCreateCategory(name: string) {
@@ -263,8 +266,13 @@ export default function App() {
         open={showSettings}
         onOpenChange={setShowSettings}
         currentEngine={selectedEngine}
-        onSave={(engine) => {
+        useKeychain={useKeychain}
+        autoSwitchPorts={autoSwitchPorts}
+        updater={updater}
+        onSave={(engine, nextUseKeychain, nextAutoSwitchPorts) => {
           setContainerEngine(engine);
+          setUseKeychain(nextUseKeychain);
+          setAutoSwitchPorts(nextAutoSwitchPorts);
         }}
       />
     </SidebarProvider>
