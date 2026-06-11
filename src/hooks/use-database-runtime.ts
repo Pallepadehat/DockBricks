@@ -5,7 +5,6 @@ import {
   startContainer,
   stopContainer,
 } from "@/lib/tauri-commands";
-import type { ContainerRuntimeUsage } from "@/lib/tauri-commands";
 import { containerTargetFor } from "@/lib/database-utils";
 import type { ContainerEngine, Database } from "@/types/models";
 
@@ -13,7 +12,6 @@ export type RuntimeState = {
   exists: boolean;
   running: boolean;
   loading: boolean;
-  usage: ContainerRuntimeUsage | null;
   error: string | null;
 };
 
@@ -33,7 +31,7 @@ export function useDatabaseRuntime(
   const refreshRequestIds = React.useRef<Record<string, number>>({});
 
   const refreshContainerState = React.useCallback(
-    async (db: Database, options?: { silent?: boolean }) => {
+    async (db: Database) => {
       const requestId = (refreshRequestIds.current[db.id] ?? 0) + 1;
       refreshRequestIds.current[db.id] = requestId;
 
@@ -46,18 +44,15 @@ export function useDatabaseRuntime(
         return;
       }
 
-      if (!options?.silent) {
-        setRuntimeByDbId((prev) => ({
-          ...prev,
-          [db.id]: {
-            exists: prev[db.id]?.exists ?? true,
-            running: prev[db.id]?.running ?? false,
-            loading: true,
-            usage: prev[db.id]?.usage ?? null,
-            error: null,
-          },
-        }));
-      }
+      setRuntimeByDbId((prev) => ({
+        ...prev,
+        [db.id]: {
+          exists: prev[db.id]?.exists ?? true,
+          running: prev[db.id]?.running ?? false,
+          loading: true,
+          error: null,
+        },
+      }));
 
       try {
         const status = await inspectContainer(engine, containerTargetFor(db));
@@ -69,7 +64,6 @@ export function useDatabaseRuntime(
             exists: status.exists,
             running: status.running,
             loading: false,
-            usage: status.usage,
             error: status.error,
           },
         }));
@@ -82,7 +76,6 @@ export function useDatabaseRuntime(
             exists: false,
             running: false,
             loading: false,
-            usage: null,
             error: String(error),
           },
         }));
@@ -129,19 +122,6 @@ export function useDatabaseRuntime(
     return undefined;
   }, [databases, engine, engineRunning, refreshContainerState]);
 
-  React.useEffect(() => {
-    if (!engineRunning || databases.length === 0) return undefined;
-
-    const interval = window.setInterval(() => {
-      const runningDatabases = databases.filter((db) => runtimeByDbId[db.id]?.running);
-      void Promise.all(
-        runningDatabases.map((db) => refreshContainerState(db, { silent: true })),
-      );
-    }, 3000);
-
-    return () => window.clearInterval(interval);
-  }, [databases, engineRunning, refreshContainerState, runtimeByDbId]);
-
   const toggleContainerState = React.useCallback(
     async (db: Database): Promise<RuntimeActionResult> => {
       if (!engineRunning) {
@@ -164,7 +144,6 @@ export function useDatabaseRuntime(
             exists: inspected.exists,
             running: inspected.running,
             loading: false,
-            usage: inspected.usage,
             error: inspected.error,
           };
           setRuntimeByDbId((prev) => ({ ...prev, [db.id]: runtime }));

@@ -34,17 +34,9 @@ pub struct ServiceVersion {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ContainerRuntimeUsage {
-    pub cpu_percent: Option<String>,
-    pub memory: Option<String>,
-    pub storage: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct ContainerRuntimeStatus {
     pub exists: bool,
     pub running: bool,
-    pub usage: Option<ContainerRuntimeUsage>,
     pub error: Option<String>,
 }
 

@@ -3,8 +3,8 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::models::{
-    ContainerActionResult, ContainerRuntimeStatus, ContainerRuntimeUsage, CreateDatabaseRequest,
-    CreateDatabaseResult, DockerStatus, HostPortStatus,
+    ContainerActionResult, ContainerRuntimeStatus, CreateDatabaseRequest, CreateDatabaseResult,
+    DockerStatus, HostPortStatus,
 };
 use crate::validation::{
     parse_engine, validate_create_request, validate_name, validate_target, ContainerEngine,
@@ -332,7 +332,6 @@ pub fn inspect_container(engine: String, target: String) -> ContainerRuntimeStat
             return ContainerRuntimeStatus {
                 exists: false,
                 running: false,
-                usage: None,
                 error: Some(error),
             };
         }
@@ -345,11 +344,9 @@ pub fn inspect_container(engine: String, target: String) -> ContainerRuntimeStat
     match output {
         Ok(out) if out.status.success() => {
             let raw = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            let running = raw.eq_ignore_ascii_case("true");
             ContainerRuntimeStatus {
                 exists: true,
-                running,
-                usage: Some(container_usage(engine.bin(), &target, running)),
+                running: raw.eq_ignore_ascii_case("true"),
                 error: None,
             }
         }
@@ -359,14 +356,12 @@ pub fn inspect_container(engine: String, target: String) -> ContainerRuntimeStat
                 ContainerRuntimeStatus {
                     exists: false,
                     running: false,
-                    usage: None,
                     error: None,
                 }
             } else {
                 ContainerRuntimeStatus {
                     exists: false,
                     running: false,
-                    usage: None,
                     error: Some(stderr),
                 }
             }
@@ -374,106 +369,9 @@ pub fn inspect_container(engine: String, target: String) -> ContainerRuntimeStat
         Err(e) => ContainerRuntimeStatus {
             exists: false,
             running: false,
-            usage: None,
             error: Some(e.to_string()),
         },
     }
-}
-
-fn container_usage(engine_bin: &str, target: &str, running: bool) -> ContainerRuntimeUsage {
-    let storage = Command::new(engine_bin)
-        .args(["inspect", "--size", "--format", "{{.SizeRw}}", target])
-        .output()
-        .ok()
-        .and_then(|out| {
-            if out.status.success() {
-                let raw = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                format_bytes(raw.parse::<u64>().ok()?)
-            } else {
-                None
-            }
-        });
-
-    let (cpu_percent, memory) = if running {
-        Command::new(engine_bin)
-            .args([
-                "stats",
-                "--no-stream",
-                "--format",
-                "{{.CPUPerc}}|{{.MemUsage}}",
-                target,
-            ])
-            .output()
-            .ok()
-            .and_then(|out| {
-                if !out.status.success() {
-                    return None;
-                }
-                let raw = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                let (cpu, mem) = raw.split_once('|')?;
-                Some((
-                    Some(cpu.trim().to_string()),
-                    Some(compact_memory_usage(mem)),
-                ))
-            })
-            .unwrap_or((None, None))
-    } else {
-        (None, None)
-    };
-
-    ContainerRuntimeUsage {
-        cpu_percent,
-        memory,
-        storage,
-    }
-}
-
-fn compact_memory_usage(value: &str) -> String {
-    let used = value.split('/').next().unwrap_or(value).trim();
-    parse_size_to_bytes(used)
-        .and_then(format_bytes)
-        .unwrap_or_else(|| {
-            used.replace("MiB", "MB")
-                .replace("GiB", "GB")
-                .replace("KiB", "KB")
-        })
-}
-
-fn parse_size_to_bytes(value: &str) -> Option<u64> {
-    let trimmed = value.trim();
-    let number_len = trimmed
-        .char_indices()
-        .take_while(|(_, c)| c.is_ascii_digit() || *c == '.')
-        .map(|(index, c)| index + c.len_utf8())
-        .last()?;
-    let amount = trimmed[..number_len].parse::<f64>().ok()?;
-    let unit = trimmed[number_len..].trim().to_ascii_lowercase();
-    let multiplier = match unit.as_str() {
-        "b" | "" => 1.0,
-        "kb" | "kib" => 1024.0,
-        "mb" | "mib" => 1024.0_f64.powi(2),
-        "gb" | "gib" => 1024.0_f64.powi(3),
-        "tb" | "tib" => 1024.0_f64.powi(4),
-        _ => return None,
-    };
-    Some((amount * multiplier).round() as u64)
-}
-
-fn format_bytes(bytes: u64) -> Option<String> {
-    let units = ["B", "KB", "MB", "GB", "TB"];
-    let mut value = bytes as f64;
-    let mut unit = 0;
-    while value >= 1000.0 && unit < units.len() - 1 {
-        value /= 1000.0;
-        unit += 1;
-    }
-    Some(if unit == 0 {
-        format!("{} {}", bytes, units[unit])
-    } else if value >= 10.0 {
-        format!("{value:.0} {}", units[unit])
-    } else {
-        format!("{value:.1} {}", units[unit])
-    })
 }
 
 pub fn start_container(engine: String, target: String) -> ContainerActionResult {

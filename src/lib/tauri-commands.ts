@@ -36,16 +36,9 @@ export interface ServiceVersion {
   is_latest: boolean
 }
 
-export interface ContainerRuntimeUsage {
-  cpu_percent: string | null
-  memory: string | null
-  storage: string | null
-}
-
 export interface ContainerRuntimeStatus {
   exists: boolean
   running: boolean
-  usage: ContainerRuntimeUsage | null
   error: string | null
 }
 
